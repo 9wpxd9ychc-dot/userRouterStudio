@@ -16,7 +16,7 @@ Telegram ──webhook──▶ Cloudflare Worker (userrouterstudio) ──fetch
 Нужен **бот-токен от @BotFather** и бесплатный аккаунт Cloudflare.
 
 ```bash
-git clone https://github.com/userRouterStudio/userRouterStudio && cd userRouterStudio
+git clone https://github.com/USERNAME/userRouterStudio && cd userRouterStudio
 npm install -g wrangler          # или npx wrangler ...
 wrangler login                   # откроет браузер — авторизация в Cloudflare
 

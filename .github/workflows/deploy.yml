@@ -22,7 +22,6 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        working-directory: userRouterStudio
         run: |
           ID=$(wrangler kv namespace list --json | jq -r '.[] | select(.title=="userrouterstudio-db") | .id' | head -1 || true)
           if [ -z "$ID" ] || [ "$ID" = "null" ]; then
@@ -35,7 +34,6 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        working-directory: userRouterStudio
         run: wrangler deploy | tee /tmp/deploy.log
 
       - name: Sync secrets + set webhook
@@ -44,7 +42,6 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           OWNER_ID: ${{ secrets.OWNER_ID }}
           WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
-        working-directory: userRouterStudio
         run: |
           printf '%s' "$TELEGRAM_BOT_TOKEN" | wrangler secret put TELEGRAM_BOT_TOKEN
           printf '%s' "$WEBHOOK_SECRET"     | wrangler secret put WEBHOOK_SECRET
