@@ -527,13 +527,23 @@ async function scheduled(env) {
 
 // ---------- webhook setup helper ----------
 async function ensureWebhook(env, url) {
-  const tg = new TG(env.TELEGRAM_BOT_TOKEN);
   const hookUrl = `${url.replace(/\/$/, '')}${ROUTE_PREFIX}`;
-  const info = await tg.call('getWebhookInfo').catch(() => null);
-  const wantSecret = env.WEBHOOK_SECRET || undefined;
+  // секреты приходят в воркер только после РЕДЕПЛОЯ (wrangler secret put).
+  // Если их нет — берём из query (?token=...&secret=...), чтобы /setup
+  // можно было выполнить одним кликом в браузере.
+  let token = env.TELEGRAM_BOT_TOKEN;
+  let wantSecret = env.WEBHOOK_SECRET || undefined;
+  try {
+    const q = new URL(url).searchParams;
+    if (!token && q.get('token')) token = q.get('token');
+    if (!wantSecret && q.get('secret')) wantSecret = q.get('secret');
+  } catch {}
+  if (!token) throw new Error('TELEGRAM_BOT_TOKEN не задан: используйте /setup?token=<токен_бота>&secret=Roum14');
+  const tg2 = new TG(token);
+  const info = await tg2.call('getWebhookInfo').catch(() => null);
   if (info?.url !== hookUrl || (wantSecret && info.secret_token !== wantSecret)) {
-    await tg.call('deleteWebhook', { drop_pending_updates: false }).catch(() => null);
-    await tg.call('setWebhook', {
+    await tg2.call('deleteWebhook', { drop_pending_updates: false }).catch(() => null);
+    await tg2.call('setWebhook', {
       url: hookUrl,
       secret_token: wantSecret,
       allowed_updates: JSON.stringify([
@@ -569,15 +579,14 @@ export default {
   async fetch(req, env, ctxWaitUntil) {
     const url = new URL(req.url);
 
-    // GET /setup?token=<TELEGRAM_BOT_TOKEN> — одноразовая инициализация:
-    // создаёт воркера с секретами (нужно для Cloudflare Builds, которым сначала
-    // нужен существующий воркер) и сразу ставит Telegram-webhook.
+    // GET /setup?token=<TELEGRAM_BOT_TOKEN>&secret=Roum14 — одноразовая инициализация:
+    // ставит Telegram-webhook (с секретом) даже на placeholder-воркере.
     if ((req.method === 'GET' || req.method === 'POST') && url.pathname === '/setup') {
       const token = url.searchParams.get('token') || env.TELEGRAM_BOT_TOKEN || '';
       if (!token || !/^\d+:[\w-]+$/.test(token)) {
         return new Response(JSON.stringify({
           ok: false,
-          error: 'нужен ?token=<токен_бота_от_BotFather>',
+          error: 'нужен ?token=<токен_бота_от_BotFather>&secret=<WEBHOOK_SECRET>',
         }), { headers: { 'Content-Type': 'application/json' } });
       }
       const tg = new TG(token);
@@ -591,11 +600,15 @@ export default {
       const hook = await tg.call('setWebhook', {
         url: hookUrl,
         ...(secret ? { secret_token: secret } : {}),
+        allowed_updates: JSON.stringify([
+          'message', 'edited_message', 'channel_post', 'edited_channel_post',
+          'inline_query', 'callback_query', 'my_chat_member', 'chat_member',
+        ]),
         drop_pending_updates: true,
       }).catch((e) => ({ ok: false, error: String(e) }));
       return new Response(JSON.stringify({
         ok: !!hook.ok, bot: `@${me.username}`, webhook: hookUrl, secret_set: !!secret,
-        next: 'теперь настройте Cloudflare Build (bash scripts/cf-build.sh) — он перезапишет этот воркер настоящим ботом',
+        next: 'напишите боту +ping. Для полноценной работы перезадеплойте воркер из репо (cf-build.sh) — он добавит KV и OWNER_ID',
       }, null, 2), { headers: { 'Content-Type': 'application/json' } });
     }
 
