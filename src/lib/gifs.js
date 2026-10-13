@@ -1,0 +1,39 @@
+// userRouterStudio — RP GIF actions (20+). Uses public Giphy media URLs (no key needed for direct media links).
+export default {
+  hug:    { url: 'https://media.giphy.com/media/luavTwxqCfe8u/giphy.gif', msg: '🫂 {me} обнимает {you}!' },
+  pet:    { url: 'https://media.giphy.com/media/RKHeBY5912HyU/giphy.gif', msg: '🐾 {me} гладит {you}.' },
+  kiss:   { url: 'https://media.giphy.com/media/Ju7l5y9osyymQ/giphy.gif', msg: '💋 {me} целует {you}!' },
+  slap:   { url: 'https://media.giphy.com/media/S8JdYBvRc4b6M/giphy.gif', msg: '✋ {me} бьёт {you}!' },
+  bite:   { url: 'https://media.giphy.com/media/Od8dqqp7Q47fC/giphy.gif', msg: '🦈 {me} кусает {you}!' },
+  cry:    { url: 'https://media.giphy.com/media/ljLBGdLSFz3VG/giphy.gif', msg: '😢 {you} плачет... {me} сочувствует.' },
+  laugh:  { url: 'https://media.giphy.com/media/QBSbrE1oVYMYg/giphy.gif', msg: '🤣 {me} ржёт над {you}!' },
+  poke:   { url: 'https://media.giphy.com/media/mW0ZA0nn9dPby/giphy.gif', msg: '👉 {me} тыкает {you}.' },
+  wave:   { url: 'https://media.giphy.com/media/o0vwzuFwCGAFO/giphy.gif', msg: '👋 {me} машет {you}!' },
+  dance:  { url: 'https://media.giphy.com/media/lMJiHTHKhTnri1OaBh/giphy.gif', msg: '🕺 {me} танцует для {you}!' },
+  facepalm: { url: 'https://media.giphy.com/media/26FLdmIp6pJk2JSFI/giphy.gif', msg: '🤦 {me} схватился за голову из-за {you}.' },
+  shrug:  { url: 'https://media.giphy.com/media/13eifRiyYmNhdd/giphy.gif', msg: '🤷 {me} пожимает плечами на {you}.' },
+  happy:  { url: 'https://media.giphy.com/media/PkcbGbhkgtDW0/giphy.gif', msg: '😊 {me} счастлив рядом с {you}!' },
+  angry:  { url: 'https://media.giphy.com/media/SrVlE2NGtDRsI5YvBj/giphy.gif', msg: '😡 {me} зол на {you}!' },
+  blush:  { url: 'https://media.giphy.com/media/NCMCO4owhqtx0/giphy.gif', msg: '😊 {you} смутил(а) {me}...' },
+  highfive: { url: 'https://media.giphy.com/media/3oEjHV0z8Z7uFG0oRk/giphy.gif', msg: '🙌 {me} даёт пять {you}!' },
+  think:  { url: 'https://media.giphy.com/media/kNSeTs31XBZ3G/giphy.gif', msg: '🤔 {me} думает о {you}...' },
+  sleep:  { url: 'https://media.giphy.com/media/l3q2HuOTTMKgIn3R2/giphy.gif', msg: '😴 {me} засыпает, пока {you} ждёт.' },
+  coffee: { url: 'https://media.giphy.com/media/3oEduJwu3BnCD9KS3a/giphy.gif', msg: '☕ {me} предлагает кофе {you}.' },
+  heart:  { url: 'https://media.giphy.com/media/d2lcHJTG5Tscg/giphy.gif', msg: '❤️ {me} дарит сердце {you}!' },
+  kill:   { url: 'https://media.giphy.com/media/l0MYt5jPR6QX5pnqM/giphy.gif', msg: '💀 {me} убивает {you} (шутка!).' },
+  nom:    { url: 'https://media.giphy.com/media/9VyrBIQbMDSdw/giphy.gif', msg: '😋 {me} ест рядом с {you}.' },
+  wink:   { url: 'https://media.giphy.com/media/lOLissXtIJcm3SxL/giphy.gif', msg: '😉 {me} подмигивает {you}.' },
+  salute: { url: 'https://media.giphy.com/media/xThtbCPfbYULS0ED80/giphy.gif', msg: '🫡 {me} отдаёт честь {you}!' },
+};
+
+// Russian command aliases routed to RP gif actions (checked in index.js dispatch)
+export const RU_RP = new Set(['обнять', 'погладить', 'поцеловать', 'ударить', 'укусить', 'поплакать', 'посмеяться', 'потыкать', 'помахать', 'станцевать', 'пожать', 'датьпять', 'подумать', 'уснуть', 'попитькофе', 'подаритьсердце', 'убить', 'поесть', 'подмигнуть', 'отдатьчесть', 'смутиться', 'разозлиться', 'порадоваться', 'поаплодировать']);
+
+export const RU_ALIASES = {
+  'обнять': 'hug', 'погладить': 'pet', 'поцеловать': 'kiss', 'ударить': 'slap', 'укусить': 'bite',
+  'поплакать': 'cry', 'посмеяться': 'laugh', 'потыкать': 'poke', 'помахать': 'wave', 'станцевать': 'dance',
+  'пожать': 'shrug', 'погладитьголову': 'pet', 'датьпять': 'highfive', 'подумать': 'think',
+  'уснуть': 'sleep', 'попитькофе': 'coffee', 'подаритьсердце': 'heart', 'убить': 'kill',
+  'поесть': 'nom', 'подмигнуть': 'wink', 'отдатьчесть': 'salute', 'смутиться': 'blush',
+  'разозлиться': 'angry', 'порадоваться': 'happy', 'поаплодировать': 'highfive',
+};
