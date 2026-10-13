@@ -5,3 +5,10 @@ node_modules/
 .DS_Store
 package-lock.json
 bun.lockb
+node_modules/
+.wrangler/
+dist/
+.dev.vars
+*.log
+package-lock.json
+bun.lock
