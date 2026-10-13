@@ -29,9 +29,9 @@ TOML
 rm -rf "$TMP"
 
 echo ">> 3/4 Секреты..."
-printf '%s' "$BOT_TOKEN"      | $W secret put TELEGRAM_BOT_TOKEN --name userrouterstudio
-printf '%s' "$OWNER_ID"       | $W secret put OWNER_ID           --name userrouterstudio
-printf '%s' "$WEBHOOK_SECRET" | $W secret put WEBHOOK_SECRET     --name userrouterstudio
+printf '%s' "$BOT_TOKEN"      | $W secret put TELEGRAM_BOT_TOKEN
+printf '%s' "$OWNER_ID"       | $W secret put OWNER_ID          
+printf '%s' "$WEBHOOK_SECRET" | $W secret put WEBHOOK_SECRET    
 
 echo ">> 4/4 Webhook..."
 URL=$(grep -oE 'https://[a-z0-9._-]+\.workers\.dev' /tmp/urs-boot.log | head -1 || true)
