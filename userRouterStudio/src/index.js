@@ -8,7 +8,7 @@ import { TG, escapeHtml, mention } from './lib/tg.js';
 import { Store } from './lib/store.js';
 import { Anim } from './lib/animations.js';
 import { Handlers, HELP_TEXT } from './lib/handlers.js';
-import GIF_ACTIONS, { RU_ALIASES } from './lib/gifs.js';
+import GIF_ACTIONS, { RU_ALIASES, RU_RP } from './lib/gifs.js';
 
 const ROUTE_PREFIX = '/webhook'; // must match WEBHOOK_PATH secret if customized
 
@@ -113,24 +113,117 @@ const ALIAS = {
   searchmsg: 'search', find: 'search',
   setowner: 'owner', sudo: 'owner',
   menu: 'help', commands: 'help', хелп: 'help', помощь: 'help',
-};
+  // --- extended feature aliases (130+ commands) ---
+  reverse: 'revtext', переверни: 'revtext', залинк: 'linkid', link: 'short',
+  embed: 'embed', preview: 'embed', button: 'btn', inline: 'btn',
+  note_reply: 'replynote', автоответзаметкой: 'replynote',
+  snipe: 'snipe', последнеесообщение: 'snipe', lastmsg: 'snipe',
+  anticall: 'anticall', звонки: 'anticall',
+  censor: 'censor', мат: 'censor', бля: 'censor',
+  evaljs: 'evaljs', js: 'evaljs',
+  flipimg: 'reverse', upside: 'upsidedown', вверхтормашками: 'upsidedown',
+  emoji: 'emojimix', emojimix: 'emojimix',
+  stickerinfo: 'stickerid', sid: 'stickerid',
+  unsticker: 'delstick', removepack: 'delstick',
+  packstats: 'packs', mypacks: 'packs', паки: 'packs',
+  stickertopng: 'stopng', стикервpng: 'stopng',
+  pngtosticker: 'sfromimg',
+  convert: 'conv', unit: 'conv', конверт: 'conv',
+  color: 'color', hex: 'color', цвет: 'color',
+  hash: 'hash', md5: 'hash', sha256: 'hash',
+  base64: 'b64', b64: 'b64', base: 'b64',
+  uuid: 'uuid', guid: 'uuid',
+  password: 'pass', пароль: 'pass', genpass: 'pass',
+  roll_dice: 'dice', coin: 'flip', монета: 'flip', орелрешка: 'flip', flip: 'flip',
+  rps: 'rps', каменьножницы: 'rps', кнб: 'rps',
+  choose: 'choose', выбери: 'choose',
+  rand: 'randnum', random: 'randnum',
+  timeit: 'timer', таймер: 'timer', timer: 'timer',
+  remind: 'remind', напоминание: 'remind', reminder: 'remind',
+  poll: 'poll', опрос: 'poll', vote: 'poll',
+  quoteoff: 'quotestop', цитатыофф: 'quotestop',
+  quotemode: 'quotestart',
+  react: 'react', реакция: 'react',
+  unreact: 'unreact',
+  reactions: 'topreactions', топреакций: 'topreactions',
+  stats: 'userstats', статистика: 'userstats',
+  blacklist: 'gban', globalban: 'gban', гбан: 'gban',
+  ungban: 'ungban', unblacklist: 'ungban',
+  gbans: 'gbans', gbanlist: 'gbans',
+  unsilence: 'unsupergroup', silence: 'supergroup',
+  ghostmute: 'ghost', призрак: 'ghost',
+  savemedia: 'dlmedia', скачаймедиа: 'dlmedia', dlmedia: 'dlmedia',
+  telegraph: 'telegraph', статья: 'telegraph',
+  ocr: 'ocr', тексткартинки: 'ocr',
+  img: 'image', картинка: 'image', photo: 'image',
+  meme: 'meme', мем: 'meme',
+  cat: 'cat', кот: 'cat', cats: 'cat',
+  dog: 'dog', пёс: 'dog', пес: 'dog',
+  fact: 'fact', факт: 'fact', facts: 'fact',
+  urban_joke: 'joke',
+  ip: 'ipinfo', whois_ip: 'ipinfo', мойайпи: 'ipinfo',
+  dns: 'dns',
+  ssl: 'sslcheck', cert: 'sslcheck',
+  http: 'httpstatus', statuscode: 'httpstatus',
+  ua: 'uaspoof',
+  json: 'jsonfmt',
+  regex: 'regex', regexp: 'regex',
+  bin: 'binconv', dec: 'binconv', hexconv: 'binconv',
+  ascii_art: 'ascii', figlet_text: 'ascii',
+  qrwifi: 'qrwifi',
+  shorten_all: 'short', isgd: 'short',
+  currency: 'curr',
+  btc_price: 'crypto', eth: 'crypto',
+  define_en: 'define',
+  news: 'news', новости: 'news',
+  horoscope: 'horoscope', гороскоп: 'horoscope', zodiac: 'horoscope',
+  dice_roll: 'dice',
+  math_quiz: 'mathgame', математика: 'mathgame', game2048: 'numberguess',
+  guess: 'numberguess', угадайчисло: 'numberguess', numberguess: 'numberguess',
+  trivia: 'trivia', квиз: 'trivia', викторина: 'trivia',
+  xkcd: 'xkcd', комикс: 'xkcd',
+  duckduckgo: 'google',
+  yt: 'youtube', ютуб: 'youtube', youtube: 'youtube', видео: 'youtube',
+  gif_search: 'gifsearch', гиф: 'gifsearch',
+  anime_search: 'anime',
+  lyrics_find: 'lyrics',
+  translate_auto: 'tr',
+  tts_ru: 'tts', озвучь: 'tts', голосом: 'tts',
+  weather_now: 'weather', погода: 'weather',
+  calc_plus: 'calc',
+  pin_all: 'pin',
+  editcaption: 'editcap',
+  caption: 'editcap',
+  delchatphoto: 'unsetpp',
+  chatpp: 'setpp', аватарчата: 'setpp',
+  setusername: 'setuser', username: 'setuser',
+  invite: 'invite', ссылкагруппы: 'invite', invitelink: 'invite',
+  export: 'invite',
+  info_all: 'chatinfo',
+  rules: 'rules', правила: 'rules',
+  motd: 'motd',
+  bio: 'bio', описаниепрофиля: 'bio',
+  birthday: 'birthday', др: 'birthday',
+  karma: 'karma', карма: 'karma',
+  };
 
 async function dispatch(ctx, m) {
   const parsed = parseCommand(m.text || '');
   if (!parsed) return false;
   let { cmd } = parsed;
   if (ALIAS[cmd]) cmd = ALIAS[cmd];
-  cmd = RU_ALIASES[cmd] ? `rp_${RU_ALIASES[cmd]}` : cmd;
   m.__args = parsed.args;
   m.__rest = parsed.rest;
 
   const h = ctx.handlers;
 
-  // RP direct commands: +hug, +pet ... and +rp hug
+  // RP direct commands: +hug, +pet, +обнять, +погладить ... and +rp hug
+  if (RU_RP.has(cmd)) cmd = RU_ALIASES[cmd];
   if (GIF_ACTIONS[cmd]) { await h.rp(m, cmd); return true; }
-  if (cmd === 'rp') {
+  if (cmd === 'rp' || cmd === 'actions') {
     const sub = (parsed.args[0] || '').toLowerCase();
-    if (sub && GIF_ACTIONS[sub]) { await h.rp(m, sub); return true; }
+    const key = RU_RP.has(sub) ? RU_ALIASES[sub] : sub;
+    if (key && GIF_ACTIONS[key]) { await h.rp(m, key); return true; }
     await h.cmd_rp_list(m); return true;
   }
 

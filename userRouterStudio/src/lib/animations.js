@@ -204,6 +204,64 @@ export class Anim {
     return this.play(chat_id, frames, { reply_to, delay: 700 });
   }
 
+  // +react — реакция эмодзи на сообщение (красивая анимация «прилипания»)
+  async react(chat_id, message_id, emoji) {
+    return this.tg.call('setMessageReaction', { chat_id, message_id, reaction: [{ type: 'emoji', emoji }] });
+  }
+
+  // +typewriter — печатная машинка с кареткой
+  async typewriter(chat_id, text, { reply_to } = {}) {
+    const frames = [];
+    const t = String(text).slice(0, 300);
+    const step = Math.max(1, Math.ceil(t.length / 35));
+    for (let i = step; i < t.length; i += step) frames.push('<code>' + t.slice(0, i).replace(/&/g, '&amp;').replace(/</g, '&lt;') + '▏</code>');
+    frames.push('<pre>' + t.replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</pre>\n⌨️ <i>Дзынь! Перевод каретки.</i>');
+    return this.play(chat_id, frames, { reply_to, delay: 700, action: 'typing' });
+  }
+
+  // +countdown — обратный отсчёт
+  async countdown(chat_id, from = 10, { reply_to } = {}) {
+    const frames = [];
+    for (let i = from; i >= 1; i--) {
+      frames.push(`⏳ <b>Обратный отсчёт</b>\n\n${'🔢'.repeat(0)}<b style="font-size:2em">${i}</b>\n<code>${'█'.repeat(from - i)}${'░'.repeat(i)}</code>`);
+    }
+    frames.push('🎆 <b>НУЛЬ! ВРЕМЯ ВЫШЛО!</b> 🎊\n\n💥🚀🎉🥳🍾');
+    return this.play(chat_id, frames, { reply_to, delay: 800 });
+  }
+
+  // +fireworks — фейерверк
+  async fireworks(chat_id, { reply_to } = {}) {
+    const bursts = ['✨', '🎇', '💥✨', '🎆', '✨💫✨', '🌟🎇🌟', '💥🎆💥'];
+    const frames = [];
+    for (let i = 0; i < 6; i++) {
+      const row = Array.from({ length: 9 }, () => Math.random() > 0.55 ? bursts[Math.floor(Math.random() * bursts.length)] : '·').join('');
+      frames.push(`🧨 <b>САЛЮТ!</b>\n\n${row}\n${Array.from({ length: 9 }, () => Math.random() > 0.6 ? bursts[Math.floor(Math.random() * bursts.length)] : ' ').join('')}\n\n<small>С Новым Годом каждый день! 🎉</small>`);
+    }
+    frames.push('🎆🎆🎆 <b>BOOM!</b> 🎆🎆🎆\n\n✨🎇✨🎉✨🎇✨');
+    return this.play(chat_id, frames, { reply_to, delay: 750 });
+  }
+
+  // +rain — дождик
+  async rain(chat_id, { reply_to } = {}) {
+    const frames = [];
+    for (let i = 0; i < 6; i++) {
+      const drop = Array.from({ length: 12 }, () => ['🌧', '💧', '☔️', ' ', ' ', '·'][Math.floor(Math.random() * 6)]).join('');
+      frames.push(`🌧 <b>Дождик идёт...</b>\n\n${drop}\n${Array.from({ length: 12 }, () => Math.random() > 0.5 ? '💧' : ' ').join('')}\n\n<i>Кап... кап... кап...</i>`);
+    }
+    frames.push('🌈 <b>Дождь закончился!</b>\n☀️🌈☀️\nРадуга для всех! 💖');
+    return this.play(chat_id, frames, { reply_to, delay: 800 });
+  }
+
+  // +neon — неоновая вывеска
+  async neon(chat_id, text, { reply_to } = {}) {
+    const t = (text || 'userRouterStudio').toUpperCase().slice(0, 20);
+    const styles = [`🔴 ${t} 🔴`, `🟠 ${t} 🟠`, `🟡 ${t} 🟡`, `🟢 ${t} 🟢`, `🔵 ${t} 🔵`, `🟣 ${t} 🟣`, `⚪️ ${t} ⚪️`, `💡 ${t} 💡`];
+    const frames = [];
+    for (let i = 0; i < 10; i++) frames.push(`<b>NEON SIGN</b>\n\n${styles[i % styles.length]}\n\n<code>${'~'.repeat((i % 3) + 1)} ток бежит по трубкам ${'~'.repeat(3 - (i % 3))}</code>`);
+    frames.push(`<b>✨ ${t} ✨</b>\n\n💡 Горит. Не трогать руками. 💡`);
+    return this.play(chat_id, frames, { reply_to, delay: 650 });
+  }
+
   // +earth — вращение земли
   async earth(chat_id, { reply_to } = {}) {
     const seq = ['🌍', '🌎', '🌏'];

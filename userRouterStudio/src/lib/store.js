@@ -91,6 +91,66 @@ export class Store {
   }
   async lookupUser(id) { return this.getJSON(`user:${id}`, null); }
 
+  // ---------- karma (rep) ----------
+  async addKarma(userId, delta) {
+    const key = `karma:${userId}`;
+    const v = (await this.getJSON(key, 0)) + delta;
+    await this.setJSON(key, Math.max(-1000, Math.min(1000, v)));
+    return v;
+  }
+  async getKarma(userId) { return this.getJSON(`karma:${userId}`, 0); }
+
+  // ---------- global ban list ----------
+  async gbanList() { return this.getJSON('gbans', {}); }
+  async gbanAdd(userId, reason) {
+    const m = await this.getJSON('gbans', {});
+    m[String(userId)] = { reason, since: Date.now() };
+    await this.setJSON('gbans', m);
+  }
+  async gbanDel(userId) {
+    const m = await this.getJSON('gbans', {});
+    delete m[String(userId)];
+    await this.setJSON('gbans', m);
+  }
+
+  // ---------- reply-notes: word -> note name auto-reply ----------
+  async addReplyNote(chatId, trigger, noteName) {
+    const f = await this.getJSON(`rnote:${chatId}`, {});
+    f[trigger.toLowerCase()] = noteName.toLowerCase();
+    await this.setJSON(`rnote:${chatId}`, f);
+  }
+  async delReplyNote(chatId, trigger) {
+    const f = await this.getJSON(`rnote:${chatId}`, {});
+    delete f[trigger.toLowerCase()];
+    await this.setJSON(`rnote:${chatId}`, f);
+  }
+  async getReplyNotes(chatId) { return this.getJSON(`rnote:${chatId}`, {}); }
+
+  // ---------- last message per chat (snipe) ----------
+  async setLastMsg(chatId, data) { await this.setJSON(`lastmsg:${chatId}`, data); }
+  async getLastMsg(chatId) { return this.getJSON(`lastmsg:${chatId}`, null); }
+
+  // ---------- reminders ----------
+  async addReminder(chatId, item) {
+    const list = await this.getJSON(`reminders:${chatId}`, []);
+    list.push(item);
+    await this.setJSON(`reminders:${chatId}`, list.slice(-100));
+  }
+  async getReminders(chatId) { return this.getJSON(`reminders:${chatId}`, []); }
+  async popDueReminders(chatId, nowSec) {
+    const list = await this.getJSON(`reminders:${chatId}`, []);
+    const due = list.filter((r) => r.at <= nowSec);
+    const rest = list.filter((r) => r.at > nowSec);
+    if (due.length) await this.setJSON(`reminders:${chatId}`, rest);
+    return due;
+  }
+
+  // ---------- sticker packs registry ----------
+  async registerPack(name) {
+    const list = await this.getJSON('packs', []);
+    if (!list.includes(name)) { list.push(name); await this.setJSON('packs', list.slice(-50)); }
+  }
+
   // ---------- logs (Pasture-style event log) ----------
   pushLog(entry) {
     mem.logs.unshift({ ...entry, t: Date.now() });

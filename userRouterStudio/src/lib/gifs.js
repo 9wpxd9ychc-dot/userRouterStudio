@@ -26,6 +26,9 @@ export default {
   salute: { url: 'https://media.giphy.com/media/xThtbCPfbYULS0ED80/giphy.gif', msg: '🫡 {me} отдаёт честь {you}!' },
 };
 
+// Russian command aliases routed to RP gif actions (checked in index.js dispatch)
+export const RU_RP = new Set(['обнять', 'погладить', 'поцеловать', 'ударить', 'укусить', 'поплакать', 'посмеяться', 'потыкать', 'помахать', 'станцевать', 'пожать', 'датьпять', 'подумать', 'уснуть', 'попитькофе', 'подаритьсердце', 'убить', 'поесть', 'подмигнуть', 'отдатьчесть', 'смутиться', 'разозлиться', 'порадоваться', 'поаплодировать']);
+
 export const RU_ALIASES = {
   'обнять': 'hug', 'погладить': 'pet', 'поцеловать': 'kiss', 'ударить': 'slap', 'укусить': 'bite',
   'поплакать': 'cry', 'посмеяться': 'laugh', 'потыкать': 'poke', 'помахать': 'wave', 'станцевать': 'dance',
