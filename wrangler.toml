@@ -4,9 +4,9 @@ compatibility_date = "2024-09-23"
 
 # KV создаётся автоматически скриптом scripts/cf-build.sh при первом Cloudflare Build.
 # Для локального деплоя: npx wrangler kv namespace create DB, затем вписать id ниже.
-# [[kv_namespaces]]
-# binding = "DB"
-# id = "<ваш-id>"
+[[kv_namespaces]]
+binding = "DB"
+id = "00000000000000000000000000000000"
 
 [triggers]
 crons = ["*/10 * * * *"]

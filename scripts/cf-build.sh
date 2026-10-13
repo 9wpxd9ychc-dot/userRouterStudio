@@ -45,14 +45,17 @@ echo ">> Синтаксис всех файлов OK"
 
 # 1. KV-неймспейс (создаётся один раз, id сохраняется в wrangler.toml)
 KV_ID=$(grep -A2 'kv_namespaces' wrangler.toml | grep -oE '[a-f0-9]{32}' | head -1 || true)
+[ "$KV_ID" = "00000000000000000000000000000000" ] && KV_ID=""
 if [ -z "${KV_ID}" ]; then
   echo ">> Создаю KV-неймспейс userrouterstudio-db ..."
   KV_JSON=$($WRANGLER kv namespace create DB --json 2>/dev/null || true)
   KV_ID=$(echo "$KV_JSON" | grep -oE '"id"[^"]*"[a-f0-9]{32}"' | grep -oE '[a-f0-9]{32}' | head -1 || true)
   if [ -z "$KV_ID" ]; then
-    echo "!! Не удалось создать KV. Работаем без персистентности."
+    echo "!! Не удалось создать KV (нет прав?). Работаем без персистентности (в памяти isolate)."
+    sed -i.bak '/^\[\[kv_namespaces\]\]/,+2d' wrangler.toml; rm -f wrangler.toml.bak
   else
-    sed -i.bak 's|^# \[\[kv_namespaces\]\]|[[kv_namespaces]]|; s|^# binding = "DB"|binding = "DB"|; s|^# id = "<ваш-id>"|id = "'"$KV_ID"' "|' wrangler.toml
+    node -e 'const fs=require("fs");let t=fs.readFileSync("wrangler.toml","utf8");if(!/^\[\[kv_namespaces\]\]/m.test(t)){t+="\n[[kv_namespaces]]\nbinding = \"DB\"\nid = \"'$KV_ID'\"\n"}else{t=t.replace(/^id\s*=\s*".*"/m,"id = \"'$KV_ID'\"")}fs.writeFileSync("wrangler.toml",t)' \
+      || sed -i.bak "s|^id *=.*|id = \"$KV_ID\"|" wrangler.toml
     rm -f wrangler.toml.bak
     echo ">> KV id: $KV_ID"
   fi
