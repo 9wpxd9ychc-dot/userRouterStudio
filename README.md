@@ -50,6 +50,24 @@ curl https://userrouterstudio.<ваш-аккаунт>.workers.dev/setup   # ▶ 
 bash scripts/deploy.sh "123456:ABC-your-token" 11111111
 ```
 
+### 🌐 Деплой БЕЗ CLOUDFLARE_API_TOKEN / ACCOUNT_ID в GitHub (2 способа)
+
+**Способ 1 — Cloudflare Dashboard подключает GitHub сам (рекомендую, токены не нужны вообще):**
+1. [dash.cloudflare.com](https://dash.cloudflare.com) → **Workers & Pages** → **Create** → **Pages** → **Connect to Git**
+2. Выберите репозиторий `userRouterStudio`, ветку `main`
+3. Framework preset: **None**; Build command: `bash scripts/cf-build.sh`; Output: `dist`
+4. В разделе Variables добавьте только `TELEGRAM_BOT_TOKEN`, `OWNER_ID`, `WEBHOOK_SECRET`
+5. Save and Deploy. Cloudflare сам авторизован в своём билде — API-токен аккаунта подставляется автоматически (`CLOUDFLARE_API_TOKEN`/`CLOUDFLARE_ACCOUNT_ID` доступны внутри build-окружения из коробки). Дальше каждый `git push` = автодеплой.
+
+**Способ 2 — локально через `wrangler login` (OAuth в браузере, токены руками не копировать):**
+```bash
+npx wrangler login                       # откроется браузер — вход в Cloudflare
+git clone https://github.com/ВАШ/userRouterStudio && cd userRouterStudio
+bash scripts/deploy-local.sh "123456:ABC-token" 11111111
+```
+
+Оба варианта делают то же, что и Actions: KV + секреты + deploy + webhook.
+
 ### Локальная разработка
 ```bash
 cp .dev.vars.example .dev.vars   # вписать токен
