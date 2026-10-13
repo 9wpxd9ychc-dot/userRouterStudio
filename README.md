@@ -136,4 +136,52 @@ Cloudflare Workers не держат MTProto-сессии, поэтому всё
 - Калькулятор — whitelist-парсер, никакого произвольного eval.
 
 ## 📄 License
-MIT © userRouterStudio
+MIT © userRouterStudio## ☁️ Деплой на Cloudflare БЕЗ токенов в GitHub (рекомендуется)
+
+Cloudflare сам подключается к вашему GitHub и сам подставляет себе токен внутри сборки — вам НЕ нужно создавать CLOUDFLARE_API_TOKEN и НЕ нужно ничего добавлять в настройки GitHub.
+
+### Пошаговая инструкция (5–7 минут)
+
+1. **Аккаунт:** зайдите на https://dash.cloudflare.com → Sign up (email или Google). План Free подходит (100 000 запросов/сутки).
+
+2. **Workers Builds:** слева в меню **Workers & Pages** → **Create** → выберите **Workers** → вкладка **Build settings** → **Connect to Git**.
+
+3. **GitHub-авторизация:** если видите «missing git connection» / «Connect GitHub account» — нажмите эту кнопку, откроется github.com с просьбой авторизовать приложение *Cloudflare Workers* → **Authorize cloudflare-workers**. Затем вернитесь и выберите репозиторий **userRouterStudio**, ветку **master**.
+   > ⚠️ Если репо не находится в списке: в том же окне есть ссылка "Install Cloudflare Workers on GitHub" → нажмите → выберите "Only select repositories" → добавьте `userRouterStudio` → Install. Это и есть та самая «git connection».
+
+4. **Настройки сборки:**
+   - Framework preset: **None**
+   - Build command: `bash scripts/cf-build.sh`
+   - Deploy (output) directory: `dist`
+
+5. **Variables / Secrets** (кнопка Add variable на той же странице):
+   | Тип | Имя | Значение |
+   |-----|-----|----------|
+   | Secret | `TELEGRAM_BOT_TOKEN` | токен от @BotFather (`123456:AAA...`) |
+   | Variable | `OWNER_ID` | ваш числовой Telegram ID (от @userinfobot) |
+   | Secret | `WEBHOOK_SECRET` | любая своя длинная случайная строка |
+
+6. **Save and Deploy** → ждите ~2 минуты. Логи покажут: создание KV, деплой воркера, ответ `setWebhook: {"ok":true}`.
+
+7. **Проверка:** URL будет вида `https://userrouterstudio.<ваш-prefix>.workers.dev` (виден в Detail view билда). Откройте его — должно вернуть `{"ok":true}`. Напишите боту `+ping`, затем `+help`.
+
+После этого каждый ваш `git push` в ветку master будет автоматически пересобирать и передеплоивать бота.
+
+<details>
+<summary>Альтернатива A: через GitHub Actions (нужны CF-токены)</summary>
+
+Добавьте в репозиторий секреты `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `TELEGRAM_BOT_TOKEN`, `OWNER_ID`, `WEBHOOK_SECRET` (Settings → Secrets and variables → Actions) и запушьте — workflow `.github/workflows/deploy.yml` сделает всё сам.
+
+</details>
+
+<details>
+<summary>Альтернатива B: локально через OAuth-логин (без копирования токенов)</summary>
+
+```bash
+npx --yes wrangler login          # откроется браузер — просто войдите в аккаунт Cloudflare
+git clone https://github.com/<ваш-логин>/userRouterStudio && cd userRouterStudio
+bash scripts/deploy-local.sh "123xxx:ВАШ_БОТ_ТОКЕН" ВASH_ID
+```
+
+</details>
+
