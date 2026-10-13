@@ -113,6 +113,33 @@ export class TG {
     });
   }
 
+  sendDice(chat_id, emoji = '🎲', opts = {}) {
+    return this.call('sendDice', { chat_id, emoji, reply_to_message_id: opts.reply_to });
+  }
+
+  sendPoll(chat_id, question, options, opts = {}) {
+    return this.call('sendPoll', {
+      chat_id, question,
+      options: JSON.stringify(options),
+      type: opts.type || 'regular',
+      allows_multiple_answers: !!opts.multiple,
+      is_anonymous: opts.anonymous !== false,
+      reply_to_message_id: opts.reply_to,
+    });
+  }
+
+  pollAnswers(chat_id, message_id) {
+    return this.call('getPollVotes', { chat_id, message_id }).catch(() => []);
+  }
+
+  stopPoll(chat_id, message_id) {
+    return this.call('stopPoll', { chat_id, message_id }).catch(() => null);
+  }
+
+  setMyCommands(list) {
+    return this.call('setMyCommands', { commands: list.slice(0, 100) }).catch(() => null);
+  }
+
   // ---- stickers ----
   createNewStickerSet(user_id, name, title, sticker) {
     return this.call('createNewStickerSet', {

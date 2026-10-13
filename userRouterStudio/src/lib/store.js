@@ -150,6 +150,51 @@ export class Store {
     const list = await this.getJSON('packs', []);
     if (!list.includes(name)) { list.push(name); await this.setJSON('packs', list.slice(-50)); }
   }
+  async listPacks() { return this.getJSON('packs', []); }
+  async unregisterPack(name) {
+    const list = (await this.getJSON('packs', [])).filter((p) => p !== name);
+    await this.setJSON('packs', list);
+  }
+
+  // ---------- games state (numberguess / mathgame / timer / trivia) ----------
+  async getGame(chatId) { return this.getJSON(`game:${chatId}`, null); }
+  async setGame(chatId, data) { await this.setJSON(`game:${chatId}`, data); }
+  async delGame(chatId) { await this.setJSON(`game:${chatId}`, null); }
+
+  // ---------- auto-pin rules ----------
+  async addAutopin(chatId, regex) {
+    const list = await this.getJSON(`autopin:${chatId}`, []);
+    if (!list.includes(regex)) { list.push(regex); await this.setJSON(`autopin:${chatId}`, list.slice(-30)); }
+  }
+  async getAutopin(chatId) { return this.getJSON(`autopin:${chatId}`, []); }
+
+  // ---------- chat rules / motd / bio / birthday ----------
+  async setChatField(chatId, field, text) { await this.setJSON(`field:${chatId}:${field}`, text); }
+  async getChatField(chatId, field) { return this.getJSON(`field:${chatId}:${field}`, null); }
+  async setUserField(userId, field, text) { await this.setJSON(`ufield:${userId}:${field}`, text); }
+  async getUserField(userId, field) { return this.getJSON(`ufield:${userId}:${field}`, null); }
+
+  // ---------- ghost mute list ----------
+  async ghostAdd(chatId, userId) {
+    const m = await this.getJSON(`ghost:${chatId}`, {});
+    m[String(userId)] = Date.now();
+    await this.setJSON(`ghost:${chatId}`, m);
+  }
+  async ghostDel(chatId, userId) {
+    const m = await this.getJSON(`ghost:${chatId}`, {});
+    delete m[String(userId)];
+    await this.setJSON(`ghost:${chatId}`, m);
+  }
+  async ghostList(chatId) { return this.getJSON(`ghost:${chatId}`, {}); }
+
+  // ---------- reaction counters ----------
+  async addReaction(chatId, emoji) {
+    const key = `react:${chatId}`;
+    const m = await this.getJSON(key, {});
+    m[emoji] = (m[emoji] || 0) + 1;
+    await this.setJSON(key, m);
+  }
+  async topReactions(chatId) { return this.getJSON(`react:${chatId}`, {}); }
 
   // ---------- logs (Pasture-style event log) ----------
   pushLog(entry) {

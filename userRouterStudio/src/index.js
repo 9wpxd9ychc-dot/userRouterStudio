@@ -114,97 +114,105 @@ const ALIAS = {
   setowner: 'owner', sudo: 'owner',
   menu: 'help', commands: 'help', хелп: 'help', помощь: 'help',
   // --- extended feature aliases (130+ commands) ---
-  reverse: 'revtext', переверни: 'revtext', залинк: 'linkid', link: 'short',
-  embed: 'embed', preview: 'embed', button: 'btn', inline: 'btn',
+  переверни: 'revtext', залинк: 'linkid', msglink: 'linkid', linkmsg: 'linkid',
+  embed: 'embed', preview: 'embed', кнопка: 'btn', inline: 'btn', button: 'btn',
   note_reply: 'replynote', автоответзаметкой: 'replynote',
   snipe: 'snipe', последнеесообщение: 'snipe', lastmsg: 'snipe',
-  anticall: 'anticall', звонки: 'anticall',
-  censor: 'censor', мат: 'censor', бля: 'censor',
-  evaljs: 'evaljs', js: 'evaljs',
-  flipimg: 'reverse', upside: 'upsidedown', вверхтормашками: 'upsidedown',
+  звонки: 'anticall',
+  censor: 'censor', мат: 'censor',
+  evaljs: 'evaljs', js: 'evaljs', sandbox: 'evaljs',
+  flipimg: 'reverse', вверхтормашками: 'upsidedown', upside: 'upsidedown',
   emoji: 'emojimix', emojimix: 'emojimix',
   stickerinfo: 'stickerid', sid: 'stickerid',
   unsticker: 'delstick', removepack: 'delstick',
   packstats: 'packs', mypacks: 'packs', паки: 'packs',
   stickertopng: 'stopng', стикервpng: 'stopng',
-  pngtosticker: 'sfromimg',
-  convert: 'conv', unit: 'conv', конверт: 'conv',
+  pngtosticker: 'sfromimg', imgtosticker: 'sfromimg',
+  convert: 'conv', unit: 'conv', конверт: 'conv', units: 'conv',
   color: 'color', hex: 'color', цвет: 'color',
-  hash: 'hash', md5: 'hash', sha256: 'hash',
+  hash: 'hash', md5: 'hash', sha256: 'hash', sha1: 'hash',
   base64: 'b64', b64: 'b64', base: 'b64',
   uuid: 'uuid', guid: 'uuid',
-  password: 'pass', пароль: 'pass', genpass: 'pass',
-  roll_dice: 'dice', coin: 'flip', монета: 'flip', орелрешка: 'flip', flip: 'flip',
-  rps: 'rps', каменьножницы: 'rps', кнб: 'rps',
-  choose: 'choose', выбери: 'choose',
-  rand: 'randnum', random: 'randnum',
+  password: 'pass', пароль: 'pass', genpass: 'pass', passwd: 'pass',
+  coin: 'flip', монета: 'flip', орелрешка: 'flip', flip: 'flip', подбрось: 'flip',
+  rps: 'rps', кнб: 'rps', каменьножницы: 'rps',
+  choose: 'choose', выбери: 'choose', судьба: 'choose',
+  rand: 'randnum', random: 'randnum', рандом: 'randnum',
   timeit: 'timer', таймер: 'timer', timer: 'timer',
   remind: 'remind', напоминание: 'remind', reminder: 'remind',
   poll: 'poll', опрос: 'poll', vote: 'poll',
   quoteoff: 'quotestop', цитатыофф: 'quotestop',
-  quotemode: 'quotestart',
+  quotemode: 'quotestart', цитаты: 'quotestart',
   react: 'react', реакция: 'react',
   unreact: 'unreact',
   reactions: 'topreactions', топреакций: 'topreactions',
-  stats: 'userstats', статистика: 'userstats',
+  stats: 'userstats', статистика: 'userstats', userstats: 'userstats',
   blacklist: 'gban', globalban: 'gban', гбан: 'gban',
-  ungban: 'ungban', unblacklist: 'ungban',
+  ungban: 'ungban', unblacklist: 'ungban', разгбан: 'ungban',
   gbans: 'gbans', gbanlist: 'gbans',
   unsilence: 'unsupergroup', silence: 'supergroup',
   ghostmute: 'ghost', призрак: 'ghost',
-  savemedia: 'dlmedia', скачаймедиа: 'dlmedia', dlmedia: 'dlmedia',
+  savemedia: 'dlmedia', скачаймедиа: 'dlmedia', dlmedia: 'dlmedia', getfile: 'dlmedia',
   telegraph: 'telegraph', статья: 'telegraph',
   ocr: 'ocr', тексткартинки: 'ocr',
   img: 'image', картинка: 'image', photo: 'image',
   meme: 'meme', мем: 'meme',
-  cat: 'cat', кот: 'cat', cats: 'cat',
-  dog: 'dog', пёс: 'dog', пес: 'dog',
+  cat: 'cat', кот: 'cat', cats: 'cat', котики: 'cat',
+  dog: 'dog', пёс: 'dog', пес: 'dog', собака: 'dog',
   fact: 'fact', факт: 'fact', facts: 'fact',
-  urban_joke: 'joke',
-  ip: 'ipinfo', whois_ip: 'ipinfo', мойайпи: 'ipinfo',
+  ip: 'ipinfo', мойайпи: 'ipinfo', myip: 'ipinfo',
   dns: 'dns',
   ssl: 'sslcheck', cert: 'sslcheck',
-  http: 'httpstatus', statuscode: 'httpstatus',
+  http: 'httpstatus', statuscode: 'httpstatus', pingurl: 'httpstatus',
   ua: 'uaspoof',
-  json: 'jsonfmt',
+  json: 'jsonfmt', jsonfmt: 'jsonfmt',
   regex: 'regex', regexp: 'regex',
   bin: 'binconv', dec: 'binconv', hexconv: 'binconv',
-  ascii_art: 'ascii', figlet_text: 'ascii',
-  qrwifi: 'qrwifi',
-  shorten_all: 'short', isgd: 'short',
-  currency: 'curr',
-  btc_price: 'crypto', eth: 'crypto',
-  define_en: 'define',
+  qrwifi: 'qrwifi', wifiqr: 'qrwifi',
   news: 'news', новости: 'news',
   horoscope: 'horoscope', гороскоп: 'horoscope', zodiac: 'horoscope',
-  dice_roll: 'dice',
-  math_quiz: 'mathgame', математика: 'mathgame', game2048: 'numberguess',
+  math_quiz: 'mathgame', математика: 'mathgame', mathgame: 'mathgame',
   guess: 'numberguess', угадайчисло: 'numberguess', numberguess: 'numberguess',
   trivia: 'trivia', квиз: 'trivia', викторина: 'trivia',
   xkcd: 'xkcd', комикс: 'xkcd',
-  duckduckgo: 'google',
   yt: 'youtube', ютуб: 'youtube', youtube: 'youtube', видео: 'youtube',
-  gif_search: 'gifsearch', гиф: 'gifsearch',
-  anime_search: 'anime',
-  lyrics_find: 'lyrics',
-  translate_auto: 'tr',
-  tts_ru: 'tts', озвучь: 'tts', голосом: 'tts',
-  weather_now: 'weather', погода: 'weather',
-  calc_plus: 'calc',
-  pin_all: 'pin',
-  editcaption: 'editcap',
-  caption: 'editcap',
+  gif_search: 'gifsearch', гиф: 'gifsearch', gifsearch: 'gifsearch',
+  wordgame: 'wordgame', анаграмма: 'wordgame',
+  editcaption: 'editcap', caption: 'editcap',
   delchatphoto: 'unsetpp',
-  chatpp: 'setpp', аватарчата: 'setpp',
+  chatpp: 'setpp', аватарчата: 'setpp', setavatar: 'setpp',
   setusername: 'setuser', username: 'setuser',
-  invite: 'invite', ссылкагруппы: 'invite', invitelink: 'invite',
-  export: 'invite',
-  info_all: 'chatinfo',
+  invite: 'invite', ссылкагруппы: 'invite', invitelink: 'invite', ref: 'invite',
   rules: 'rules', правила: 'rules',
   motd: 'motd',
   bio: 'bio', описаниепрофиля: 'bio',
-  birthday: 'birthday', др: 'birthday',
-  karma: 'karma', карма: 'karma',
+  birthday: 'birthday', др: 'birthday', ддр: 'birthday',
+  karma: 'karma', карма: 'karma', репутация: 'karma',
+  autopin: 'autopin', автораспилить: 'autopin',
+  supergroup: 'supergroup', unsupergroup: 'unsupergroup',
+  geo: 'geo', гео: 'geo', локация: 'geo',
+  dist: 'distance', расстояние: 'distance', distance: 'distance',
+  wc: 'wc', words: 'wc', статтекста: 'wc',
+  reverseimg: 'reverse', перевернутькартинку: 'reverse',
+  hide: 'hide', скрыть: 'hide',
+  greet: 'greet', приветствие: 'greet', встречай: 'greet',
+  bye: 'bye', прощание: 'bye',
+  warnlog: 'warnlog',
+  speedmsg: 'speedmsg', latency: 'speedmsg',
+  debug: 'debug',
+  pingall: 'pingall',
+  promote: 'promote', повысь: 'promote', admin: 'promote',
+  demote: 'demote', понизь: 'demote', unmuteadmin: 'demote',
+  lock: 'lock', закрой: 'lock',
+  unlock: 'unlock', открой: 'unlock',
+  settings: 'settings', настройки: 'settings', config: 'settings',
+  exportcfg: 'export', дамп: 'export',
+  donate: 'donate', донат: 'donate', поддержать: 'donate',
+  version: 'version', версия: 'version', changelog: 'version',
+  antiflood: 'antiflood', антифлуд: 'antiflood',
+  nsfwguard: 'nsfwguard', nsfw: 'nsfwguard',
+  setmycommands: 'commands', menuupdate: 'commands',
+  trickortreat: 'trivia',
   };
 
 async function dispatch(ctx, m) {
@@ -236,7 +244,7 @@ async function dispatch(ctx, m) {
   }
   // unknown "+" command → gentle hint
   if (parsed.cmd) {
-    await h.reply(m, `🤷 Команда <code>+${escapeHtml(parsed.cmd)}</code> не найдена.\nНапишите <code>+help</code> — там 80+ команд.`);
+    await h.reply(m, `🤷 Команда <code>+${escapeHtml(parsed.cmd)}</code> не найдена.\nНапишите <code>+help</code> — там 210+ команд.`);
     return true;
   }
   return false;
@@ -286,8 +294,145 @@ async function passive(ctx, m) {
     if (m.text) await tg.send(m.chat.id, m.text, { parse_mode: null }).catch(() => null);
   }
 
-  // slow-mode emulation (anti-flood)
-  const slowSec = await store.getJSON(`slow:${m.chat.id}`, 0);
+  // ---------- passive: snipe, quotemode, censor, autopin, ghostmute, supergroup, nsfw, antiflood, games ----------
+  if (!isCmd && m.from && !m.from.is_bot) {
+    // remember last message for +snipe
+    if (m.text) await store.setLastMsg(m.chat.id, { text: m.text.slice(0, 800), name: mentionPlain(m.from), date: m.date });
+
+    // ghost-mute & supergroup & nsfw-guard: silent delete
+    const ghosts = await store.getGhostList(m.chat.id);
+    const superOn = await store.getToggle(m.chat.id, 'supergroup');
+    const nsfwOn = await store.getToggle(m.chat.id, 'nsfw');
+    const isAdminish = isOwnerSafe(m.from.id);
+    if (!isAdminish && (ghosts[String(m.from.id)] || superOn)) {
+      await tg.deleteMessage(m.chat.id, m.message_id);
+      return;
+    }
+    if (!isAdminish && nsfwOn && (m.photo || m.video || m.animation || m.document || m.voice || m.audio)) {
+      await tg.deleteMessage(m.chat.id, m.message_id);
+      await tg.send(m.chat.id, `🔞 ${mention(m.from)}, медиа в этом чате запрещены.`, { reply_to: null }).then((x) =>
+        setTimeout(() => tg.deleteMessage(m.chat.id, x.message_id).catch(() => null), 4000)).catch(() => null);
+      return;
+    }
+
+    // censor toggle: rewrite message with masked profanity
+    if (m.text && await store.getToggle(m.chat.id, 'censor')) {
+      const c = U2.censorText(m.text);
+      if (c.hits > 0) {
+        await tg.deleteMessage(m.chat.id, m.message_id);
+        await tg.send(m.chat.id, `${mention(m.from)} → <code>${escapeHtml(c.text)}</code>`).then((x) =>
+          setTimeout(() => tg.deleteMessage(m.chat.id, x.message_id).catch(() => null), 6000)).catch(() => null);
+      }
+    }
+
+    // auto-pin by regex rules
+    if (m.text) {
+      const rules = await store.getAutopin(m.chat.id);
+      for (const re of rules) {
+        try {
+          if (new RegExp(re, 'i').test(m.text)) { await tg.pin(m.chat.id, m.message_id, true); break; }
+        } catch {}
+      }
+    }
+
+    // quote mode: mirror next messages as quotes
+    if (m.text && await store.getToggle(m.chat.id, 'quotemode')) {
+      await tg.call('sendMessage', {
+        chat_id: m.chat.id,
+        text: m.text.slice(0, 4096),
+        reply_parameters: { message_id: m.message_id },
+      }).catch(() => null);
+    }
+
+    // anti-flood (separate from slow-mode): 5+ msgs in 3s -> mute 60s
+    if (await store.getToggle(m.chat.id, 'antiflood') && !isAdminish) {
+      const st = CACHE.slowState.get('fl:' + m.chat.id + ':' + m.from.id) || [];
+      const now = Date.now();
+      const recent = [...st, now].filter((t) => now - t < 3000);
+      CACHE.slowState.set('fl:' + m.chat.id + ':' + m.from.id, recent);
+      if (recent.length >= 5) {
+        const until = Math.floor(now / 1000) + 60;
+        await tg.restrict(m.chat.id, m.from.id, {
+          can_send_messages: false, can_send_audios: false, can_send_documents: false, can_send_photos: false,
+          can_send_videos: false, can_send_video_notes: false, can_send_voice_notes: false, can_send_polls: false,
+          can_send_other_messages: false, can_add_web_page_previews: false,
+        }, until).catch(() => null);
+        await tg.send(m.chat.id, `🛡 Антифлуд: ${mention(m.from)} замучен на 60 сек.`).catch(() => null);
+      }
+    }
+
+    // mini-games: numberguess / mathgame / trivia — plain-number/letter answers
+    const game = await store.getGame(m.chat.id);
+    if (game && m.text) {
+      const t = m.text.trim().toLowerCase();
+      if (game.type === 'guess') {
+        const n = Number(t); game.tries++;
+        if (Number.isFinite(n) && n === game.secret) {
+          await store.addKarma(m.from.id, 5);
+          await store.delGame(m.chat.id);
+          await tg.send(m.chat.id, `🎉 ${mention(m.from)} угадал число <b>${game.secret}</b> за ${game.tries} попыток! +5 кармы.`, { reply_to: m.message_id });
+        } else if (game.tries >= 10) {
+          await store.delGame(m.chat.id);
+          await tg.send(m.chat.id, `😿 Игра окончена. Число было <b>${game.secret}</b>. Новая: <code>+guess</code>`, { reply_to: m.message_id });
+        } else if (Number.isFinite(n)) {
+          await tg.send(m.chat.id, `${n > game.secret ? '⬇️ Меньше' : '⬆️ Больше'}! Попытка ${game.tries}/10`, { reply_to: m.message_id });
+        }
+        return;
+      }
+      if (game.type === 'math') {
+        const n = Number(t.replace(',', '.')); game.tries++;
+        if (n === game.ans) {
+          await store.addKarma(m.from.id, 3);
+          await store.delGame(m.chat.id);
+          await tg.send(m.chat.id, `✅ Верно! ${mention(m.from)} решает задачи за ${game.tries} попыток (+3 кармы).`, { reply_to: m.message_id });
+        } else if (game.tries >= 5) {
+          await store.delGame(m.chat.id);
+          await tg.send(m.chat.id, `❌ Ответ был <b>${game.ans}</b>. Ещё раз: <code>+mathgame</code>`, { reply_to: m.message_id });
+        } else {
+          await tg.send(m.chat.id, `🤔 Не то, попробуй ещё (попытка ${game.tries}/5)`, { reply_to: m.message_id });
+        }
+        return;
+      }
+      if (game.type === 'trivia') {
+        const pick = t[0];
+        if ('abcd'.includes(pick)) {
+          const ok = pick === game.ans.toLowerCase();
+          if (ok) await store.addKarma(m.from.id, 4);
+          await store.delGame(m.chat.id);
+          await tg.send(m.chat.id, ok ? `🏆 ${mention(m.from)} верно! (+4 кармы)` : `😵 Неправильно. Верный ответ — <b>${game.ans.toUpperCase()}</b>.`, { reply_to: m.message_id });
+          return;
+        }
+      }
+    }
+  }
+
+  // join events: greet / motd / gban enforcement / birthday check
+  if (upd.new_chat_member) {
+    const j = upd.new_chat_member.new_chat_member;
+    store.pushLog({ kind: 'JOIN', info: `${j ? mentionPlain(j) : '?'} вошёл в чат` });
+    if (j?.is_bot && j?.username === ctx.me?.username) {
+      await tg.send(upd.chat.id, `🕺 <b>userRouterStudio на борту!</b>\nНапиши <code>+help</code> или <code>/start</code>. 👋`);
+    } else if (j && !j.is_bot) {
+      const gbans = await store.gbanList();
+      if (gbans[String(j.id)]) {
+        await tg.ban(upd.chat.id, j.id).catch(() => null);
+        await tg.send(upd.chat.id, `🌍 ${mention(j)} в глобальном бане (${escapeHtml(gbans[String(j.id)].reason || '')}) → забанен здесь автоматически.`).catch(() => null);
+      } else {
+        const greet = await store.getChatField(upd.chat.id, 'greet');
+        const motd = await store.getChatField(upd.chat.id, 'motd');
+        const line = (greet || motd || '').replace(/\{user\}/g, mention(j)).replace(/\{chat\}/g, upd.chat.title || 'чат');
+        if (line) await tg.send(upd.chat.id, line).catch(() => null);
+        else if (greet || motd) await tg.send(upd.chat.id, `👋 Добро пожаловать, ${mention(j)}!`).catch(() => null);
+      }
+    }
+  }
+  if (upd.left_chat_member) {
+    const l = upd.left_chat_member.left_chat_member;
+    store.pushLog({ kind: 'LEAVE', info: `${l ? mentionPlain(l) : '?'} покинул чат` });
+    const bye = await store.getChatField(upd.chat.id, 'bye');
+    if (bye && l) await tg.send(upd.chat.id, bye.replace(/\{user\}/g, escapeHtml(mentionPlain(l))).replace(/\{chat\}/g, upd.chat.title || 'чат')).catch(() => null);
+  }
+}
   if (slowSec > 0 && m.from && !isOwnerSafe(m.from.id)) {
     const st = CACHE.slowState.get(m.chat.id) || { lastTs: 0, lastUser: 0, streak: 0 };
     const now = Date.now();

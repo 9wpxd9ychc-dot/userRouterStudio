@@ -1,6 +1,7 @@
 // userRouterStudio — command handlers
 import { escapeHtml, mention, displayName } from './tg.js';
 import * as U from './utils.js';
+import * as U2 from './utils2.js';
 import GIF_ACTIONS from './gifs.js';
 
 export function isOwner(uid) {
@@ -860,6 +861,898 @@ export class Handlers {
     globalThis.__URS_OWNER = m.from.id;
     await this.store.setJSON('owner', m.from.id);
     this.reply(m, '👑 Вы записаны как владелец бота.');
+  }
+
+  // =====================================================
+  // EXTENDED FEATURES (130+ additional commands)
+  // =====================================================
+
+  // ---------- messages / media extended ----------
+  async cmd_linkid(m) {
+    const src = m.reply_to_message || m;
+    const c = m.chat;
+    let link = '';
+    if (c.username) link = `https://t.me/${c.username}/${src.message_id}`;
+    else if (c.type !== 'private') link = `https://t.me/c/${String(-c.id).slice(4)}/${src.message_id}`;
+    else return this.reply(m, '🔗 В личных чатах постоянные ссылки недоступны (нужен публичный чат/канал).');
+    this.reply(m, `🔗 <a href="${link}">Прямая ссылка на сообщение</a>`);
+  }
+
+  async cmd_embed(m) {
+    let url = (m.__args?.[0] || '').trim();
+    if (!url) return this.reply(m, 'Использование: <code>+embed https://ссылка</code>');
+    if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+    try {
+      await this.tg.send(m.chat.id, `🔗 ${escapeHtml(url)}`, { preview: true, reply_to: m.message_id });
+      this.tg.deleteMessage(m.chat.id, m.message_id).catch(() => null);
+    } catch (e) { this.reply(m, '❌ ' + escapeHtml(e.message)); }
+  }
+
+  async cmd_btn(m) {
+    const rest = m.__rest;
+    if (!rest) return this.reply(m, 'Использование: <code>+btn Текст|https://url | Текст2|url2</code>');
+    const rows = rest.split(/\s*\|\|\s*/).slice(0, 6).map((pair) => {
+      const [text, ...u] = pair.split('|');
+      return [{ text: (text || 'Ссылка').trim().slice(0, 40), url: (u.join('|') || 'https://t.me').trim() }];
+    });
+    try {
+      await this.tg.send(m.chat.id, '🕹 Нажми кнопку:', { keyboard: { inline_keyboard: rows }, reply_to: m.message_id });
+    } catch (e) { this.reply(m, '❌ ' + escapeHtml(e.message)); }
+  }
+
+  async cmd_replynote(m) {
+    const trigger = m.__args?.[0]?.toLowerCase();
+    const noteName = (m.__rest.slice(trigger ? trigger.length : 0).trim()).toLowerCase();
+    if (!trigger || !noteName) return this.reply(m, 'Использование: <code>+replynote триггер имя_заметки</code> (заметка создаётся через <code>+note</code>)');
+    const note = await this.store.getNote(m.chat.id, noteName);
+    if (!note) return this.reply(m, `🤷 Заметка «${escapeHtml(noteName)}» не найдена. Сначала: <code>+note ${noteName} текст</code>`);
+    await this.store.addReplyNote(m.chat.id, trigger, noteName);
+    this.reply(m, `📌 Теперь на слово «${escapeHtml(trigger)}» бот отвечает заметкой «${escapeHtml(noteName)}».`);
+  }
+
+  async cmd_snipe(m) {
+    const last = await this.store.getLastMsg(m.chat.id);
+    if (!last) return this.reply(m, '🎯 Не поймано ни одного сообщения после /start бота. Напишите что-нибудь и повторите.');
+    const ago = Math.max(0, Math.floor(Date.now() / 1000) - last.date);
+    this.reply(m,
+      `🎯 <b>SNIPE</b>\n\n` +
+      `👤 От: <b>${escapeHtml(last.name)}</b>\n` +
+      `⏱ ${ago} сек назад\n` +
+      `💬 <blockquote>${escapeHtml(last.text)}</blockquote>`);
+  }
+
+  async cmd_quotestart(m) {
+    await this.store.setToggle(m.chat.id, 'quotemode', true);
+    this.reply(m, '🗨 Режим цитат ВКЛ: теперь каждое следующее сообщение собеседника будет оформлено цитатой.');
+  }
+  async cmd_quotestop(m) {
+    await this.store.setToggle(m.chat.id, 'quotemode', false);
+    this.reply(m, '🗨 Режим цитат ВЫКЛ.');
+  }
+
+  async cmd_editcap(m) {
+    const src = m.reply_to_message;
+    if (!src || !(src.photo || src.document || src.video || src.animation)) return this.reply(m, 'Ответьте на медиа, чтобы сменить подпись.');
+    try {
+      await this.tg.call('editMessageCaption', { chat_id: m.chat.id, message_id: src.message_id, caption: m.__rest || '' });
+      this.tg.deleteMessage(m.chat.id, m.message_id).catch(() => null);
+    } catch (e) { this.reply(m, '⚠️ Bot API позволяет менять подписи только у <i>своих</i> сообщений: ' + escapeHtml(e.message)); }
+  }
+
+  async cmd_dlmedia(m) {
+    const src = m.reply_to_message;
+    if (!src) return this.reply(m, 'Ответьте на медиа-сообщение.');
+    const s = src.document || src.animation || src.voice || src.audio || src.video_note || src.video || src.photo?.at(-1) || src.sticker;
+    if (!s) return this.reply(m, 'В сообщении нет медиа.');
+    try {
+      const f = await this.tg.getFile(s.file_id);
+      const dl = `https://api.telegram.org/file/bot${this.tg.token}/${f.file_path}`;
+      await this.reply(m, `📥 <b>${escapeHtml(f.file_path.split('/').pop())}</b> (${Math.round((s.file_size || 0) / 1024)} КБ)\n🔗 <a href="${dl}">Прямая ссылка на скачивание</a>\n<small>⚠️ Ссылка раскрывает токен — используйте только в доверенном чате или сохраните файл пересылкой (+save).</small>`);
+    } catch (e) { this.reply(m, '❌ ' + escapeHtml(e.message)); }
+  }
+
+  async cmd_telegraph(m) {
+    const title = m.__args?.[0] || 'Без названия';
+    const body = m.__rest.slice(title.length).trim() || m.reply_to_message?.text;
+    if (!body) return this.reply(m, 'Использование: <code>+telegraph Заголовок текст статьи</code>');
+    try { this.reply(m, await U2.telegraphPost(title, body)); } catch (e) { this.reply(m, '❌ ' + escapeHtml(e.message)); }
+  }
+
+  async cmd_ocr(m) {
+    const src = m.reply_to_message;
+    const photo = src?.photo?.at(-1);
+    if (!photo) return this.reply(m, 'Ответьте на картинку. Использование: <code>+ocr</code> (ответом на фото)');
+    try {
+      const f = await this.tg.getFile(photo.file_id);
+      const res = await fetch(`https://api.ocr.space/parse/imageurl?apikey=helloworld&url=${encodeURIComponent('https://api.telegram.org/file/bot' + this.tg.token + '/' + f.file_path)}`).then((r) => r.json());
+      if (res.ParsedResults?.[0]?.ParsedText) return this.reply(m, `🔤 <b>Распознанный текст:</b>\n<pre>${escapeHtml(res.ParsedResults[0].ParsedText.slice(0, 1500))}</pre>`);
+      throw new Error(res.ErrMessage || 'ничего не распознано');
+    } catch (e) { this.reply(m, '⚠️ OCR-сервис недоступен: ' + escapeHtml(e.message)); }
+  }
+
+  // ---------- info / spy extended ----------
+  async cmd_userstats(m) {
+    const u = this.targetUser(m);
+    if (!u?.id) return this.reply(m, 'Ответьте на сообщение пользователя.');
+    const msgs = this.cache.msgByUser?.get(u.id) || 0;
+    const first = this.cache.firstSeen?.get(u.id);
+    const chats = this.cache.userChats?.get(u.id) || new Set();
+    const karma = await this.store.getKarma(u.id);
+    this.reply(m,
+      `📊 <b>СТАТИСТИКА: ${escapeHtml(displayName(u))}</b>\n\n` +
+      `📨 Сообщений в кэше: <b>${msgs}</b>\n` +
+      `💬 Замечен в чатах: <b>${chats.size}</b>\n` +
+      `🆔 <code>${u.id}</code>\n` +
+      `🕐 Первый контакт: ${first ? new Date(first * 1000).toLocaleString('ru-RU') : '—'}\n` +
+      `☯️ Карма: <b>${karma}</b>`);
+  }
+
+  async cmd_topreactions(m) {
+    const map = await this.store.topReactions(m.chat.id);
+    const arr = Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 10);
+    if (!arr.length) return this.reply(m, 'Реакций пока никто не ставил (бот считает только свои кнопки-реакции +react).');
+    this.reply(m, `🎭 <b>ТОП РЕАКЦИЙ ЧАТА:</b>\n` + arr.map(([e, c]) => `${e} × ${c}`).join('\n'));
+  }
+
+  async cmd_invite(m) {
+    if (this.needAdmin(m)) return;
+    if (m.chat.type === 'private') return this.reply(m, 'В личке ссылки нету 🙂');
+    try {
+      const link = await this.tg.call('createChatInviteLink', { chat_id: m.chat.id, member_limit: Number(m.__args?.[0]) || undefined });
+      this.reply(m, `🔗 <b>Пригласительная ссылка:</b>\n<a href="${link.invite_link}">${link.invite_link}</a>${link.expire_date ? `\n⏳ До: ${new Date(link.expire_date * 1000).toLocaleString('ru-RU')}` : ''}`);
+    } catch {
+      try {
+        const full = await this.tg.chatInfo(m.chat.id);
+        if (full.invite_link) return this.reply(m, `🔗 Основная ссылка чата:\n<a href="${full.invite_link}">${full.invite_link}</a>`);
+        this.reply(m, '⚠️ Бот не может создать ссылку (нет права invite_users) или чат приватный без основной ссылки.');
+      } catch (e) { this.reply(m, '❌ ' + escapeHtml(e.message)); }
+    }
+  }
+
+  async cmd_sslcheck(m) {
+    const host = (m.__args?.[0] || '').replace(/^https?:\/\//, '').split('/')[0];
+    if (!host) return this.reply(m, 'Использование: <code>+ssl example.com</code>');
+    try {
+      const t0 = Date.now();
+      const res = await fetch(`https://${host}`, { method: 'HEAD', redirect: 'follow', ...{ headers: { 'User-Agent': 'Mozilla/5.0 URS' } } });
+      this.reply(m,
+        `🔒 <b>SSL/HTTPS: ${escapeHtml(host)}</b>\n` +
+        `✅ HTTPS работает · HTTP ${res.status}\n` +
+        `⏱ Handshake+ответ: ${Date.now() - t0} мс\n` +
+        `<small>Полная проверка сертификата (issuer/expiry) требует TCP-доступа — недоступно в Workers.</small>`);
+    } catch (e) { this.reply(m, '❌ Хост не отвечает по HTTPS: ' + escapeHtml(e.message)); }
+  }
+
+  async cmd_geo(m) {
+    const loc = m.reply_to_message?.location;
+    if (!loc) return this.reply(m, 'Ответьте на геолокацию: <code>+geo</code>');
+    try {
+      const out = await U2.geoLocate(loc.latitude, loc.longitude);
+      const dist = m.from ? '' : '';
+      void dist;
+      this.reply(m, out);
+    } catch (e) { this.reply(m, '❌ ' + escapeHtml(e.message)); }
+  }
+
+  async cmd_distance(m) {
+    const nums = (m.__rest.match(/-?\d+(\.\d+)?/g) || []).map(Number);
+    if (nums.length < 4) return this.reply(m, 'Использование: <code>+dist 55.75 37.61 59.93 30.31</code> (lat1 lon1 lat2 lon2)');
+    this.reply(m, U2.distanceKm(nums[0], nums[1], nums[2], nums[3]));
+  }
+
+  // ---------- automation extended ----------
+  async cmd_anticall(m) {
+    const on = !(await this.store.getToggle(m.chat.id, 'anticall'));
+    await this.store.setToggle(m.chat.id, 'anticall', on);
+    this.reply(m, on
+      ? '📵 Анти-звонки ВКЛ. Звонки боту будут отклоняться автоматически.'
+      : '✅ Анти-звонки ВЫКЛ.');
+  }
+
+  async cmd_autopin(m) {
+    if (this.needAdmin(m)) return;
+    const re = m.__rest;
+    if (!re) return this.reply(m, 'Использование: <code>+autopin важн</code> — закреплять сообщения по слову/regex');
+    try { new RegExp(re); } catch { return this.reply(m, '❌ Некорректный regex'); }
+    await this.store.addAutopin(m.chat.id, re);
+    this.reply(m, `📌 Автопин добавлен: <code>${escapeHtml(re)}</code>`);
+  }
+
+  async cmd_remind(m) {
+    const dur = this.parseDur(m.__args?.[0]);
+    const text = m.__rest.replace(/^\S+\s*/, '').trim();
+    if (!dur || !text) return this.reply(m, 'Использование: <code>+remind 10 мин выпить воды</code>');
+    const at = Math.floor(Date.now() / 1000) + dur;
+    await this.store.addReminder(m.chat.id, { at, text, by: m.from.id });
+    this.reply(m, `⏰ Напомню «${escapeHtml(text)}» через ${Math.round(dur / 60)} мин (в этом чате).`);
+  }
+
+  async cmd_timer(m) {
+    const secs = Math.min(3600, Number(m.__args?.[0]) || 60);
+    const msg = await this.reply(m, `⏲ Таймер: ${secs} сек… ⏳`);
+    setTimeout(async () => {
+      try {
+        await this.tg.send(m.chat.id, `🔔⏲ <b>Таймер ${secs} сек сработал!</b>`, { reply_to: m.message_id });
+        await this.tg.deleteMessage(m.chat.id, msg.message_id);
+      } catch {}
+    }, secs * 1000);
+  }
+
+  async cmd_supergroup(m) {
+    if (!isOwner(m.from.id)) return this.reply(m, '⛔️ Только владелец.');
+    await this.store.setToggle(m.chat.id, 'supergroup', true);
+    this.reply(m, '📢 Режим супергруппы ВКЛ: бот будет молча удалять все сообщения не-админов (тихий чат-клоанонс). Отключение: <code>+unsilence</code>');
+  }
+  async cmd_unsupergroup(m) {
+    await this.store.setToggle(m.chat.id, 'supergroup', false);
+    this.reply(m, '🕊 Режим тишины выключен.');
+  }
+
+  async cmd_ghost(m) {
+    if (this.needAdmin(m)) return;
+    const u = this.targetUser(m);
+    if (!u?.id || u.id === m.from.id) return this.reply(m, 'Ответьте на сообщение жертвы.');
+    await this.store.ghostAdd(m.chat.id, u.id);
+    this.reply(m, `👻 ${escapeHtml(displayName(u))} в ghost-mute: его сообщения удаляются без уведомления.`);
+  }
+
+  async cmd_censor(m) {
+    const on = !(await this.store.getToggle(m.chat.id, 'censor'));
+    await this.store.setToggle(m.chat.id, 'censor', on);
+    this.reply(m, on ? '🤬 Цензура ВКЛ: мат в сообщениях будет заменяться на █.' : '🧼 Цензура ВЫКЛ.');
+  }
+
+  async cmd_bio(m) {
+    if (!m.__rest) {
+      const bio = await this.store.getUserField(m.from.id, 'bio');
+      return this.reply(m, bio ? `📝 Ваша био: ${escapeHtml(bio)}` : 'Использование: <code>+bio текст</code> (хранится в базе бота, показывается в +info)');
+    }
+    await this.store.setUserField(m.from.id, 'bio', m.__rest.slice(0, 500));
+    this.reply(m, '📝 Био сохранено (видят другие через +info). Настоящую смену био может только userbot-сессия.');
+  }
+
+  async cmd_birthday(m) {
+    const arg = m.__args?.[0];
+    if (!arg) {
+      const bd = await this.store.getUserField(m.from.id, 'birthday');
+      return this.reply(m, bd ? `🎂 Ваш ДР: <b>${escapeHtml(bd)}</b>` : 'Использование: <code>+birthday 25.12</code> или <code>+birthday 01.01.2000</code>');
+    }
+    if (!/^\d{1,2}[.\/-]\d{1,2}([.\/-]\d{2,4})?$/.test(arg)) return this.reply(m, '❌ Формат: дд.мм или дд.мм.гггг');
+    await this.store.setUserField(m.from.id, 'birthday', arg);
+    this.reply(m, `🎂 Дата рождения сохранена: <b>${escapeHtml(arg)}</b>. Бот будет поздравлять в этот день.`);
+  }
+
+  async cmd_rules(m) {
+    if (m.__rest) {
+      if (this.needAdmin(m)) return;
+      await this.store.setChatField(m.chat.id, 'rules', m.__rest);
+      return this.reply(m, '📜 Правила чата сохранены. Показ: <code>+rules</code>');
+    }
+    const rules = await this.store.getChatField(m.chat.id, 'rules');
+    this.reply(m, rules ? `📜 <b>Правила чата:</b>\n\n${escapeHtml(rules)}` : '📜 Правил ещё нет. Админ задаст: <code>+rules текст</code>');
+  }
+
+  async cmd_motd(m) {
+    if (m.__rest) {
+      if (this.needAdmin(m)) return;
+      await this.store.setChatField(m.chat.id, 'motd', m.__rest);
+      return this.reply(m, '📣 MOTD обновлён — показывается всем новым участникам.');
+    }
+    const motd = await this.store.getChatField(m.chat.id, 'motd');
+    this.reply(m, motd ? `📣 <b>Здесь говорят:</b>\n${escapeHtml(motd)}` : 'MOTD не задан. <code>+motd текст</code>');
+  }
+
+  // ---------- dev tools extended ----------
+  async cmd_hash(m) {
+    const algo = (m.__args?.[0] || 'sha256').toLowerCase();
+    const text = m.__rest.slice(algo.length).trim() || m.reply_to_message?.text;
+    if (!text) return this.reply(m, 'Использование: <code>+hash sha256 текст</code> (md5/sha1/sha256/sha384/sha512)');
+    try { this.reply(m, await U2.hashText(algo, text), { preview: false }); } catch (e) { this.reply(m, '❌ ' + escapeHtml(e.message)); }
+  }
+
+  async cmd_b64(m) {
+    const mode = (m.__args?.[0] || 'enc').toLowerCase();
+    const decode = ['dec', 'decode', '-d'].includes(mode);
+    const text = decode ? m.__rest : m.__rest.replace(/^(enc|encode|-e)\s*/i, '');
+    if (!text) return this.reply(m, 'Использование: <code>+b64 enc текст</code> / <code>+b64 decbase64строка</code>');
+    try { this.reply(m, `<code>${escapeHtml(U2.b64(decode ? 'decode' : 'std', text).slice(0, 3500))}</code>`); }
+    catch (e) { this.reply(m, '❌ ' + escapeHtml(e.message)); }
+  }
+
+  async cmd_uuid(m) {
+    const n = Math.min(5, Number(m.__args?.[0]) || 1);
+    const list = Array.from({ length: n }, () => U2.uuidv4());
+    this.reply(m, `🆔 UUID v4:\n${list.map((u) => `<code>${u}</code>`).join('\n')}`);
+  }
+
+  async cmd_pass(m) {
+    const len = Number(m.__args?.[0]) || 20;
+    this.reply(m, `🔐 Пароль (${len}):\n<code>${U2.genPass(len)}</code>\n<small>Генерация криптографически стойкая (WebCrypto).</small>`);
+  }
+
+  async cmd_conv(m) {
+    if (!m.__rest) return this.reply(m, 'Использование: <code>+conv 10 км -> мили</code>, <code>+conv 100 F -> C</code>');
+    try { this.reply(m, U2.convertUnits(m.__rest)); } catch (e) { this.reply(m, '❌ ' + escapeHtml(e.message)); }
+  }
+
+  async cmd_color(m) {
+    if (!m.__rest) return this.reply(m, 'Использование: <code>+color #ff8800</code> или <code>+color gold</code>');
+    try {
+      const info = U2.colorInfo(m.__args[0] || m.__rest);
+      const hex = (/#?[0-9a-f]{6}/i.exec(m.__rest) || [''])[0] || m.__rest;
+      const png = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&color=${encodeURIComponent(hex.startsWith('#') ? hex.slice(1) : hex)}&bgcolor=ffffff&data=color`;
+      await this.tg.sendPhoto(m.chat.id, png, '', { reply_to: m.message_id }).catch(() => null);
+      this.reply(m, info);
+    } catch (e) { this.reply(m, '❌ ' + escapeHtml(e.message)); }
+  }
+
+  async cmd_jsonfmt(m) {
+    const raw = m.__rest || m.reply_to_message?.text;
+    if (!raw) return this.reply(m, 'Использование: <code>+json {"a":1}</code> или ответом на JSON');
+    try { this.reply(m, U2.jsonFormat(raw), { preview: false }); } catch (e) { this.reply(m, '❌ ' + escapeHtml(e.message)); }
+  }
+
+  async cmd_regex(m) {
+    const sep = m.__rest.indexOf(' | ');
+    if (sep === -1) return this.reply(m, 'Использование: <code>+regex /паттерн/i | текст</code>');
+    try { this.reply(m, U2.regexTest(m.__rest.slice(0, sep), m.__rest.slice(sep + 3))); } catch (e) { this.reply(m, '❌ ' + escapeHtml(e.message)); }
+  }
+
+  async cmd_binconv(m) {
+    if (!m.__rest) return this.reply(m, 'Использование: <code>+bin 255</code> / <code>+bin 0xFF</code> / <code>+bin 0b1010</code>');
+    try { this.reply(m, U2.binConv(m.__args[0] || m.__rest)); } catch (e) { this.reply(m, '❌ ' + escapeHtml(e.message)); }
+  }
+
+  async cmd_ipinfo(m) {
+    try { this.reply(m, await U2.ipInfo(m.__args?.[0] || '')); } catch (e) { this.reply(m, '❌ ' + escapeHtml(e.message)); }
+  }
+
+  async cmd_dns(m) {
+    if (!m.__rest) return this.reply(m, 'Использование: <code>+dns example.com</code>');
+    try { this.reply(m, await U2.dnsLookup(m.__args[0])); } catch (e) { this.reply(m, '❌ ' + escapeHtml(e.message)); }
+  }
+
+  async cmd_httpstatus(m) {
+    if (!m.__rest) return this.reply(m, 'Использование: <code>+http example.com</code>');
+    try { this.reply(m, await U2.httpStatus(m.__args[0]), { preview: false }); } catch (e) { this.reply(m, '❌ ' + escapeHtml(e.message)); }
+  }
+
+  async cmd_uaspoof(m) {
+    this.reply(m, '🕵️ Проверка UA выполняется со стороны сервера при вебхуке. См. <code>/whoami</code> в URL-браузере воркера или GET-страницу статуса.');
+  }
+
+  async cmd_evaljs(m) {
+    if (!isOwner(m.from.id)) return this.reply(m, '⛔️ Только владелец. Это потенциально опасная команда.');
+    const code = m.__rest || m.reply_to_message?.text;
+    if (!code) return this.reply(m, 'Использование: <code>+eval 2**64</code> или <code>+eval fetch(...)</code>');
+    try {
+      const fn = new Function(`"use strict";return (async()=>{${code}})()`);
+      const result = await Promise.race([
+        fn(),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('Таймаут 5 сек')), 5000)),
+      ]);
+      const str = typeof result === 'string' ? result : JSON.stringify(result, null, 1) ?? String(result);
+      this.reply(m, `🧠 <b>eval:</b>\n<pre>${escapeHtml(String(str).slice(0, 3000))}</pre>`, { preview: false });
+    } catch (e) { this.reply(m, '💥 ' + escapeHtml(e.message)); }
+  }
+
+  async cmd_wc(m) {
+    const text = m.__rest || m.reply_to_message?.text;
+    if (!text) return this.reply(m, 'Ответьте на текст или напишите <code>+wc текст</code>');
+    this.reply(m, U2.wordCount(text));
+  }
+
+  // ---------- fun / games extended ----------
+  async cmd_flip(m) {
+    const r = Math.random() < 0.5 ? '🪙 Орёл' : '🪙 Решка';
+    this.reply(m, `<b>${r}!</b>`);
+  }
+
+  async cmd_rps(m) {
+    const mine = (m.__args?.[0] || '').toLowerCase();
+    const opts = { камень: '✊', rock: '✊', ножницы: '✌️', scissors: '✌️', бумага: '✋', paper: '✋' };
+    if (!opts[mine]) return this.reply(m, 'Использование: <code>+rps камень|ножницы|бумага</code>');
+    const botKeys = ['✊', '✌️', '✋'];
+    const bot = botKeys[Math.floor(Math.random() * 3)];
+    const win = { '✊': '✌️', '✌️': '✋', '✋': '✊' };
+    const you = opts[mine];
+    const res = you === bot ? '🤝 Ничья!' : win[you] === bot ? '🎉 Вы победили!' : '🤖 Бот победил!';
+    this.reply(m, `Вы: ${you} · Бот: ${bot}\n<b>${res}</b>`);
+  }
+
+  async cmd_choose(m) {
+    try { this.reply(m, U2.chooseOne(m.__rest)); } catch (e) { this.reply(m, '❌ ' + escapeHtml(e.message)); }
+  }
+
+  async cmd_randnum(m) {
+    let a = Number(m.__args?.[0]), b = Number(m.__args?.[1]);
+    if (!Number.isFinite(a)) a = 1; if (!Number.isFinite(b)) b = 100;
+    const lo = Math.min(a, b), hi = Math.max(a, b);
+    const arr = new Uint32Array(1); crypto.getRandomValues(arr);
+    this.reply(m, `🎰 <b>${lo + (arr[0] % (hi - lo + 1))}</b> <small>(диапазон ${lo}–${hi})</small>`);
+  }
+
+  async cmd_numberguess(m) {
+    const arr = new Uint32Array(1); crypto.getRandomValues(arr);
+    const secret = 1 + (arr[0] % 100);
+    await this.store.setGame(m.chat.id, { type: 'guess', secret, tries: 0, by: m.from.id });
+    this.reply(m, '🔢 Я загадал число от 1 до 100. Угадай его обычным сообщением! (до 10 попыток)');
+  }
+
+  async cmd_mathgame(m) {
+    const g = U2.mathGameSeed();
+    await this.store.setGame(m.chat.id, { type: 'math', ans: g.ans, tries: 0, by: m.from.id });
+    this.reply(m, `🧮 Реши пример: <b>${g.q}</b>\nОтвечай числом!`);
+  }
+
+  async cmd_poll(m) {
+    const parts = m.__rest.split('|').map((s) => s.trim()).filter(Boolean);
+    if (parts.length < 3) return this.reply(m, 'Использование: <code>+poll Вопрос? | Да | Нет</code>');
+    try {
+      await this.tg.sendPoll(m.chat.id, parts[0].slice(0, 200), parts.slice(1, 11).map((o) => o.slice(0, 80)), { reply_to: m.message_id });
+      this.tg.deleteMessage(m.chat.id, m.message_id).catch(() => null);
+    } catch (e) { this.reply(m, '❌ ' + escapeHtml(e.message)); }
+  }
+
+  async cmd_trivia(m) {
+    try {
+      const q = await U2.triviaQuestion();
+      const msg = await this.reply(m, q.text + '\n\n<small>Ответь буквой A/B/C/D сообщением.</small>');
+      await this.store.setGame(m.chat.id, { type: 'trivia', ans: q.answer, by: m.from.id, qid: msg.message_id });
+    } catch (e) { this.reply(m, '❌ ' + escapeHtml(e.message)); }
+  }
+
+  async cmd_wordgame(m) {
+    const word = (m.__rest || '').trim().toLowerCase();
+    if (!word) return this.reply(m, 'Использование: <code>+wordgame переводчик</code> — анаграммы и факты о слове');
+    const sorted = [...word].sort().join('');
+    const anagrams = [...word].sort(() => Math.random() - 0.5).join('');
+    this.reply(m, `🔤 <b>${escapeHtml(word)}</b>\nБукв: ${word.length} · Уникальных: ${new Set(word).size}\nОтсортировано: <code>${sorted}</code>\nАнаграмма-перестановка: <code>${anagrams}</code>`);
+  }
+
+  async cmd_xkcd(m) {
+    try {
+      const num = m.__args?.[0];
+      const j = await (await fetch(num ? `https://xkcd.com/${num}/info.0.json` : 'https://xkcd.com/info.0.json')).json();
+      await this.tg.sendPhoto(m.chat.id, j.img, `🎨 ${escapeHtml(j.title)} — ${escapeHtml(j.safe_title || '')}\n🔗 xkcd.com/${j.num}`, { reply_to: m.message_id });
+    } catch (e) { this.reply(m, '❌ ' + escapeHtml(e.message)); }
+  }
+
+  async cmd_cat(m) { try { await this.tg.sendPhoto(m.chat.id, 'https://api.thecatapi.com/v1/images/search', '', { reply_to: m.message_id }); } catch { this.reply(m, '🐈 Сервис котиков отдыхает.'); } }
+
+  async cmd_dog(m) {
+    try {
+      const j = await (await fetch('https://dog.ceo/api/breeds/image/random')).json();
+      await this.tg.sendPhoto(m.chat.id, j.message, '🐶 Гав!', { reply_to: m.message_id });
+    } catch { this.reply(m, '🐕 Сервис собачек отдыхает.'); }
+  }
+
+  async cmd_fact(m) {
+    try {
+      const j = await (await fetch('https://uselessfacts.jsph.pl/random.json?language=en')).json();
+      const ru = await U.translate(j.text, 'ru').catch(() => j.text);
+      this.reply(m, `💡 <b>Факт:</b>\n${escapeHtml(ru)}`);
+    } catch { this.reply(m, '💡 Факты временно недоступны.'); }
+  }
+
+  async cmd_meme(m) {
+    try {
+      const j = await (await fetch('https://meme-api.com/gimme'))
+        .catch(() => null);
+      const d = j && await j.json();
+      if (d?.url && /\.(jpg|png|gif)$/i.test(d.url)) {
+        await this.tg.sendPhoto(m.chat.id, d.url, `😂 ${escapeHtml(d.title || 'meme')}\n👍 ${d.ups || '?'}`, { reply_to: m.message_id });
+      } else throw new Error('мем не найден');
+    } catch {
+      try {
+        const j = await (await fetch('https://api.memegen.link/images/doge/я_программист/ит_опять_работает.png')).json();
+        await this.tg.sendPhoto(m.chat.id, j.url, '😂 Рандомный мем', { reply_to: m.message_id });
+      } catch (e) { this.reply(m, '❌ Мемы кончились: ' + escapeHtml(e.message)); }
+    }
+  }
+
+  async cmd_image(m) {
+    if (!m.__rest) return this.reply(m, 'Использование: <code>+image котики в очках</code>');
+    try {
+      const j = await (await fetch(`https://api.unsplash.com/photos/random?query=${encodeURIComponent(m.__rest)}&client_id=demo`)).catch(() => null);
+      const d = j && await j.json();
+      if (d?.urls?.regular) return this.tg.sendPhoto(m.chat.id, d.urls.regular, `🖼 ${escapeHtml(m.__rest)} (Unsplash)`, { reply_to: m.message_id });
+      throw new Error('не сработало');
+    } catch {
+      this.reply(m, `🖼 <a href="https://www.google.com/search?tbm=isch&q=${encodeURIComponent(m.__rest)}">Поиск картинок Google: ${escapeHtml(m.__rest)}</a>`);
+    }
+  }
+
+  async cmd_gifsearch(m) {
+    if (!m.__rest) return this.reply(m, 'Использование: <code>+gif танцующий кот</code>');
+    const url = await U2.gifSearchUrl(m.__rest);
+    if (!url) return this.reply(m, '🎞 GIF не найден.');
+    try { await this.tg.sendAnimation(m.chat.id, url, { reply_to: m.message_id }); }
+    catch { this.reply(m, `🎞 <a href="${url}">${escapeHtml(m.__rest)}</a>`); }
+  }
+
+  async cmd_horoscope(m) {
+    try { this.reply(m, await U2.horoscope(m.__rest || m.__args?.[0] || 'овен')); } catch (e) { this.reply(m, '❌ ' + escapeHtml(e.message)); }
+  }
+
+  async cmd_news(m) {
+    try { this.reply(m, await U2.newsFeed(m.__rest)); } catch (e) { this.reply(m, '❌ ' + escapeHtml(e.message)); }
+  }
+
+  async cmd_youtube(m) {
+    if (!m.__rest) return this.reply(m, 'Использование: <code>+yt запрос</code>');
+    try { this.reply(m, await U2.youtubeSearch(m.__rest), { preview: false }); } catch (e) { this.reply(m, '❌ ' + escapeHtml(e.message)); }
+  }
+
+  async cmd_qrwifi(m) {
+    const ssid = m.__args?.[0];
+    const pass = m.__rest.slice(ssid ? ssid.length : 0).trim();
+    if (!ssid) return this.reply(m, 'Использование: <code>+qrwifi ИмяСети пароль</code>');
+    await this.tg.sendPhoto(m.chat.id, U2.qrWifi(ssid, pass), `📶 Wi-Fi: ${escapeHtml(ssid)}`, { reply_to: m.message_id });
+  }
+
+  async cmd_emojimix(m) {
+    const em = [...(m.__rest || '')];
+    if (em.length < 2) return this.reply(m, 'Использование: <code>+emojimix 😺😾</code> (два эмодзи рядом)');
+    try {
+      const r = await fetch(`https://functions.yandexcloud.net/d4en45hgrbep9ln27mon?emoji1=${encodeURIComponent(em[0])}&emoji2=${encodeURIComponent(em[1])}`).catch(() => null);
+      void r;
+    } catch {}
+    // Telegram's own mix via Bot API isn't public; use unicode approximation + hint
+    this.reply(m, `🧪 <b>${em[0]} + ${em[1]}</b>\nОфициального API для emoji-mix в Bot API нет — попробуйте официальный клиент: поиск эмодзи → «микс».\nА я вам так намешаю: ${em[0]}${em[1]}✨`);
+  }
+
+  async cmd_upsidedown(m) {
+    const text = m.__rest || m.reply_to_message?.text;
+    if (!text) return this.reply(m, 'Использование: <code>+upsidedown текст</code>');
+    this.reply(m, `<b>${escapeHtml(U2.upsideDown(text))}</b>`);
+  }
+
+  async cmd_revtext(m) {
+    const text = m.__rest || m.reply_to_message?.text;
+    if (!text) return this.reply(m, 'Использование: <code>+rev текст</code>');
+    this.reply(m, `<b>${escapeHtml(U2.revText(text))}</b>`);
+  }
+
+  async cmd_reverse(m) {
+    const src = m.reply_to_message;
+    const photo = src?.photo?.at(-1) || src?.sticker;
+    if (!photo) return this.reply(m, 'Ответьте на картинку/стикер: <code>+reverse</code> — перевернуть по вертикали.');
+    try {
+      const f = await this.tg.getFile(photo.file_id);
+      const blob = await (await fetch(`https://api.telegram.org/file/bot${this.tg.token}/${f.file_path}`)).blob();
+      const bmp = await createImageBitmap(blob);
+      const cv = new OffscreenCanvas(bmp.width, bmp.height);
+      const ctx = cv.getContext('2d');
+      ctx.translate(0, bmp.height); ctx.scale(1, -1);
+      ctx.drawImage(bmp, 0, 0);
+      const out = await cv.convertToBlob({ type: 'image/png' });
+      const fd = new FormData();
+      fd.append('chat_id', String(m.chat.id));
+      fd.append('photo', new File([out], 'flipped.png'), 'flipped.png');
+      fd.append('reply_to_message_id', String(m.message_id));
+      const r = await fetch(`https://api.telegram.org/bot${this.tg.token}/sendPhoto`, { method: 'POST', body: fd });
+      const j = await r.json();
+      if (!j.ok) throw new Error(j.description);
+    } catch (e) { this.reply(m, '❌ Рендер недоступен: ' + escapeHtml(e.message)); }
+  }
+
+  // ---------- stickers extended ----------
+  async cmd_stickerid(m) {
+    const s = m.reply_to_message?.sticker;
+    if (!s) return this.reply(m, 'Ответьте на стикер.');
+    this.reply(m,
+      `🃏 <b>Стик</b>\n👏 Эмодзи: ${s.emoji}\n📦 Сет: <code>${s.set_name || '—'}</code>\n🧩 Тип: ${s.type || (s.is_video ? 'video' : s.is_animated ? 'animated' : 'static')}\n🆔 <code>${escapeHtml(s.file_id.slice(0, 60))}…</code>`);
+  }
+
+  async cmd_delstick(m) {
+    const name = m.__args?.[0];
+    if (!name) return this.reply(m, 'Использование: <code>+delstick имя_сета</code> (удаляет из реестра паков бота)');
+    await this.store.unregisterPack(name);
+    this.reply(m, `🗑 Пак <code>${escapeHtml(name)}</code> убран из реестра.`);
+  }
+
+  async cmd_packs(m) {
+    const list = await this.store.listPacks();
+    this.reply(m, list.length
+      ? `📦 <b>Паки, созданные ботом (${list.length}):</b>\n` + list.map((p) => `• <a href="https://t.me/addstickers/${p}">${p}</a>`).join('\n')
+      : '📦 Паков пока нет. Крадите стикеры: <code>+kang</code>');
+  }
+
+  async cmd_stopng(m) {
+    const s = m.reply_to_message?.sticker;
+    if (!s) return this.reply(m, 'Ответьте на стикер.');
+    try {
+      const f = await this.tg.getFile(s.file_id);
+      await this.tg.sendDocument(m.chat.id, `https://api.telegram.org/file/bot${this.tg.token}/${f.file_path}`, { caption: '🖼 Сtikер → файл', reply_to: m.message_id });
+    } catch (e) { this.reply(m, '❌ ' + escapeHtml(e.message)); }
+  }
+
+  async cmd_sfromimg(m) {
+    const src = m.reply_to_message;
+    const photo = src?.photo?.at(-1) || src?.document;
+    if (!photo) return this.reply(m, 'Ответьте на картинку — сделаю из неё стикер.');
+    const setName = (this.tg.me?.username || 'urs').toLowerCase().replace(/[^a-z0-9_]/g, '') + '_by_urs_' + Math.random().toString(36).slice(2, 6);
+    try {
+      await this.tg.createNewStickerSet(m.from.id, setName, 'userRouterStudio kang pack', { sticker_file_id: photo.file_id, emoji: '🕺', type: 'regular' });
+      await this.store.registerPack(setName);
+      this.reply(m, `🃏 Стикер создан!\n📦 <a href="https://t.me/addstickers/${setName}">Добавить пак</a>`);
+    } catch (e) { this.reply(m, '⚠️ Нужен квадрат PNG WebP ≤512px (Bot API): ' + escapeHtml(e.message)); }
+  }
+
+  // ---------- karma ----------
+  async cmd_karma(m) {
+    const u = this.targetUser(m);
+    if (!u?.id) return this.reply(m, 'Ответьте на сообщение.');
+    if (m.__args?.length > 1 || m.reply_to_message) {
+      // adjust: +karma @user +5 (owner/admin only)
+      const deltaArg = m.__args?.find((a) => /^[+-]\d+$/.test(a));
+      if (deltaArg && this.isAdminOrOwner(m)) {
+        const v = await this.store.addKarma(u.id, Number(deltaArg));
+        return this.reply(m, `☯️ Карма ${mention(u)}: <b>${v}</b> (${deltaArg})`);
+      }
+    }
+    const k = await this.store.getKarma(u.id);
+    const bar = k >= 0 ? '🟩'.repeat(Math.min(10, Math.ceil(k / 10))) : '🟥'.repeat(Math.min(10, Math.ceil(-k / 10)));
+    this.reply(m, `☯️ Карма ${mention(u)}: <b>${k}</b>\n${bar || '⬜'}`);
+  }
+
+  // ---------- global ban ----------
+  async cmd_gban(m) {
+    if (!isOwner(m.from.id)) return this.reply(m, '⛔️ Только владелец.');
+    const u = this.targetUser(m);
+    if (!u?.id) return this.reply(m, 'Ответьте на сообщение нарушителя.');
+    await this.store.gbanAdd(u.id, m.__rest || 'без причины');
+    try { await this.tg.ban(m.chat.id, u.id); } catch {}
+    this.reply(m, `🌍 <b>GLOBAL BAN</b>: ${mention(u)} забанен во всех чатах бота (при входe будет кикаться).`);
+  }
+  async cmd_ungban(m) {
+    if (!isOwner(m.from.id)) return this.reply(m, '⛔️ Только владелец.');
+    const u = this.targetUser(m);
+    if (!u?.id) return this.reply(m, 'Ответьте на сообщение.');
+    await this.store.gbanDel(u.id);
+    this.reply(m, `🕊 Глобальный бан снят: ${mention(u)}`);
+  }
+  async cmd_gbans(m) {
+    if (!isOwner(m.from.id)) return this.reply(m, '⛔️ Только владелец.');
+    const list = await this.store.gbanList();
+    const entries = Object.entries(list);
+    this.reply(m, entries.length
+      ? `🌍 <b>GBAN LIST (${entries.length}):</b>\n` + entries.map(([id, v]) => `• <code>${id}</code> — ${escapeHtml(v.reason)}`).join('\n')
+      : '🌍 Глобальных банов нет.');
+  }
+
+  // ---------- settings / misc ----------
+  async cmd_setuser(m) {
+    this.reply(m, '⚠️ Смена username бота доступна только через @BotFather (/setusername). Через Bot API это запрещено.');
+  }
+  async cmd_setpp(m) {
+    if (this.needAdmin(m)) return;
+    const photo = m.reply_to_message?.photo?.at(-1);
+    if (!photo) return this.reply(m, 'Ответьте на картинку: <code>+setpp</code> — установить аватар чата.');
+    try {
+      const f = await this.tg.getFile(photo.file_id);
+      await this.tg.setChatPhoto(m.chat.id, `https://api.telegram.org/file/bot${this.tg.token}/${f.file_path}`);
+      this.reply(m, '🖼 Аватар чата обновлён.');
+    } catch (e) { this.reply(m, '❌ ' + escapeHtml(e.message)); }
+  }
+  async cmd_unsetpp(m) {
+    if (this.needAdmin(m)) return;
+    try { await this.tg.call('deleteChatPhoto', { chat_id: m.chat.id }); this.reply(m, '🗑 Аватар чата удалён.'); }
+    catch (e) { this.reply(m, '❌ ' + escapeHtml(e.message)); }
+  }
+
+  async cmd_react(m) {
+    const emoji = m.__args?.[0] || '👍';
+    const src = m.reply_to_message;
+    if (!src) return this.reply(m, 'Ответьте на сообщение: <code>+react 🔥</code>');
+    await this.store.addReaction(m.chat.id, emoji);
+    try {
+      await this.tg.call('setMessageReaction', { chat_id: m.chat.id, message_id: src.message_id, reaction: [{ type: 'emoji', emoji }] });
+      this.tg.deleteMessage(m.chat.id, m.message_id).catch(() => null);
+    } catch {
+      await this.tg.send(m.chat.id, `${emoji} (реакция засчитана; живую реакцию Bot API ставит только если включена в настройках группы)`, { reply_to: src.message_id });
+    }
+  }
+  async cmd_unreact(m) {
+    const src = m.reply_to_message;
+    if (!src) return this.reply(m, 'Ответьте на сообщение.');
+    try { await this.tg.call('cleanMessages', { chat_id: m.chat.id, message_ids: [] }); } catch {}
+    try { await this.tg.call('setMessageReaction', { chat_id: m.chat.id, message_id: src.message_id, is_big: false }); this.reply(m, '🧹 Реакция убрана.'); }
+    catch (e) { this.reply(m, '❌ ' + escapeHtml(e.message)); }
+  }
+
+  async cmd_commands(m) {
+    const top = ['help', 'ping', 'alive', 'afk', 'id', 'info', 'calc', 'weather', 'qr', 'type', 'hack', 'matrix', 'love', 'dice', 'slot', 'purge', 'mute', 'ban', 'warn', 'notes'];
+    await this.tg.setMyCommands(top.map((c) => ({ command: c, description: 'userRouterStudio +' + c })));
+    this.reply(m, '⌨️ Меню команд бота обновлено (20 самых ходовых доступны как /slash в меню ввода).');
+  }
+
+  async cmd_settings(m) {
+    const feats = ['autoread', 'alwaysonline', 'clone', 'quotemode', 'anticall', 'censor', 'supergroup'];
+    const rows = [];
+    for (const f of feats) rows.push(`${await this.store.getToggle(m.chat.id, f) ? '🟢' : '⚪'} <code>+${f}</code>`);
+    const slow = await this.store.getJSON(`slow:${m.chat.id}`, 0);
+    rows.push(`${slow ? '🟢' : '⚪'} <code>+slow</code> (${slow || 0}с)`);
+    const afkMap = await this.store.getAfk(m.chat.id);
+    rows.push(`🛌 AFK: ${Object.keys(afkMap).length}`);
+    const filters = await this.store.getFilters(m.chat.id);
+    rows.push(`🎯 Фильтров: ${Object.keys(filters).length}`);
+    const notes = await this.store.listNotes(m.chat.id);
+    rows.push(`📝 Заметок: ${notes.length}`);
+    this.reply(m, `⚙️ <b>Настройки этого чата:</b>\n${rows.join('\n')}`);
+  }
+
+  async cmd_export(m) {
+    const data = {
+      chat: m.chat.id,
+      exportedAt: new Date().toISOString(),
+      notes: await this.store.listNotes(m.chat.id),
+      noteContents: {},
+      filters: await this.store.getFilters(m.chat.id),
+      afk: await this.store.getAfk(m.chat.id),
+      toggles: {},
+    };
+    for (const n of data.notes) data.noteContents[n] = await this.store.getNote(m.chat.id, n);
+    for (const f of ['autoread', 'alwaysonline', 'clone', 'quotemode', 'censor', 'anticall']) data.toggles[f] = await this.store.getToggle(m.chat.id, f);
+    const json = JSON.stringify(data, null, 2);
+    try {
+      const link = await U.paste(json);
+      if (link) return this.reply(m, `📦 Экспорт настроек чата:\n🔗 <a href="${link}">${link}</a>`);
+    } catch {}
+    await this.tg.sendDocument(m.chat.id, new Blob([json], { type: 'application/json' }), { caption: '📦 Экспорт настроек чата', reply_to: m.message_id });
+  }
+
+  async cmd_donate(m) {
+    this.reply(m,
+      `💸 <b>Поддержать разработку userRouterStudio</b>\n\n` +
+      `TON: <code>userrouterstudio.ton</code>\nBTC: <code>bc1q…ваш_адрес</code>\n\n` +
+      `<small>Замените реквизиты в handlers.js → cmd_donate.</small>`);
+  }
+
+  async cmd_version(m) {
+    this.reply(m,
+      `🏷 <b>userRouterStudio v1.1.0</b>\n` +
+      `🧠 Runtime: Cloudflare Workers (V8 isolates)\n` +
+      `📦 Команд: 210+ (включая алиасы)\n` +
+      `🔗 GitHub: <a href="https://github.com/userRouterStudio/userrouterstudio">repo</a>`);
+  }
+
+  async cmd_antiflood(m) {
+    const on = !(await this.store.getToggle(m.chat.id, 'antiflood'));
+    await this.store.setToggle(m.chat.id, 'antiflood', on);
+    this.reply(m, on ? '🛡 Антифлуд ВКЛ (fast flood: 5+ сообщений за 3 сек → mute на 60с).' : '🛡 Антифлуд ВЫКЛ.');
+  }
+
+  async cmd_nsfwguard(m) {
+    const on = !(await this.store.getToggle(m.chat.id, 'nsfw'));
+    await this.store.setToggle(m.chat.id, 'nsfw', on);
+    this.reply(m, on ? '🔞 NSFW-guard ВКЛ: медиа-сообщения от не-админов удаляются.' : '🔞 NSFW-guard ВЫКЛ.');
+  }
+
+  async cmd_lock(m) {
+    if (this.needAdmin(m)) return;
+    const what = (m.__args?.[0] || '').toLowerCase();
+    const map = { members: 'can_invite_users', messages: 'can_send_messages', media: 'can_send_media_messages', pin: 'can_pin_messages', info: 'can_change_info', all: null };
+    if (!(what in map)) return this.reply(m, 'Использование: <code>+lock members|messages|media|pin|info</code>');
+    try {
+      await this.tg.call('toggleChatMemberBan'? 'banChatMember':'restrict_chat', {}).catch(() => null);
+      // proper: lockChat via setChatPermissions inverse not possible without full perms object; use deleteChatPhoto-style simple flags:
+      const YES = true, NO = false;
+      const cur = { can_send_messages: YES, can_send_audios: YES, can_send_documents: YES, can_send_photos: YES, can_send_videos: YES, can_send_video_notes: YES, can_send_voice_notes: YES, can_send_polls: YES, can_send_other_messages: YES, can_add_web_page_previews: YES, can_change_info: YES, can_invite_users: YES, can_pin_messages: YES, can_manage_topics: YES };
+      if (what === 'members') cur.can_invite_users = NO;
+      if (what === 'messages') { cur.can_send_messages = NO; }
+      if (what === 'media') { cur.can_send_photos = NO; cur.can_send_videos = NO; cur.can_send_documents = NO; }
+      if (what === 'pin') cur.can_pin_messages = NO;
+      if (what === 'info') cur.can_change_info = NO;
+      if (what === 'all') Object.keys(cur).forEach((k) => cur[k] = NO);
+      await this.tg.call('setChatPermissions', { chat_id: m.chat.id, permissions: cur });
+      this.reply(m, `🔒 Закрыто: <b>${what}</b>. Открыть: <code>+unlock ${what}</code>`);
+    } catch (e) { this.reply(m, '❌ ' + escapeHtml(e.message)); }
+  }
+
+  async cmd_unlock(m) {
+    if (this.needAdmin(m)) return;
+    try {
+      const YES = true;
+      const def = {};
+      ['can_send_messages','can_send_audios','can_send_documents','can_send_photos','can_send_videos','can_send_video_notes','can_send_voice_notes','can_send_polls','can_send_other_messages','can_add_web_page_previews','can_change_info','can_invite_users','can_pin_messages','can_manage_topics'].forEach((k) => def[k] = YES);
+      await this.tg.call('setChatPermissions', { chat_id: m.chat.id, permissions: def });
+      this.reply(m, '🔓 Все права участников восстановлены.');
+    } catch (e) { this.reply(m, '❌ ' + escapeHtml(e.message)); }
+  }
+
+  async cmd_promote(m) {
+    if (this.needAdmin(m)) return;
+    const u = this.targetUser(m);
+    if (!u?.id) return this.reply(m, 'Ответьте на сообщение кандидата.');
+    try {
+      await this.tg.promote(m.chat.id, u.id, { can_delete_messages: true, can_restrict_members: true, can_pin_messages: true, can_invite_users: true });
+      this.reply(m, `⭐ ${mention(u)} повышен до админа (partial rights).`);
+    } catch (e) { this.reply(m, '❌ ' + escapeHtml(e.message)); }
+  }
+
+  async cmd_demote(m) {
+    if (this.needAdmin(m)) return;
+    const u = this.targetUser(m);
+    if (!u?.id) return this.reply(m, 'Ответьте на сообщение.');
+    try { await this.tg.promote(m.chat.id, u.id, {}); this.reply(m, `🔽 ${mention(u)} понижен.`); }
+    catch (e) { this.reply(m, '❌ ' + escapeHtml(e.message)); }
+  }
+
+  async cmd_setname(m) {
+    if (!isOwner(m.from.id)) return this.reply(m, '⛔️ Только владелец. Имя бота меняется через @BotFather.');
+    this.reply(m, '⚠️ Bot API не разрешает менять имя бота программно — используйте @BotFather → /setname.');
+  }
+
+  async cmd_hide(m) {
+    // hide own last message after delay (stealth edit/delete)
+    const mine = this.cache.myLast?.get(m.chat.id);
+    if (!mine) return this.reply(m, 'Нет моих сообщений для скрытия.');
+    const secs = Number(m.__args?.[0]) || 5;
+    setTimeout(() => this.tg.deleteMessage(m.chat.id, mine).catch(() => null), secs * 1000);
+    this.reply(m, `🫥 Последнее моё сообщение исчезнет через ${secs} сек.`);
+  }
+
+  async cmd_stealname(m) {
+    if (!isOwner(m.from.id)) return this.reply(m, '⛔️ Только владелец.');
+    this.reply(m, '😼 Шутка. Смена имени/юзераPossible только через BotFather или userbot-сессию.');
+  }
+
+  async cmd_greet(m) {
+    if (m.__rest) {
+      if (this.needAdmin(m)) return;
+      await this.store.setChatField(m.chat.id, 'greet', m.__rest);
+      return this.reply(m, '👋 Приветствие для новых участников сохранено.');
+    }
+    const g = await this.store.getChatField(m.chat.id, 'greet');
+    this.reply(m, g ? `👋 Текущее приветствие: ${escapeHtml(g)}` : 'Не задано. <code>+greet текст (можно {user} и {chat})</code>');
+  }
+
+  async cmd_bye(m) {
+    if (m.__rest) {
+      if (this.needAdmin(m)) return;
+      await this.store.setChatField(m.chat.id, 'bye', m.__rest);
+      return this.reply(m, '👋 Прощание сохранено.');
+    }
+    const b = await this.store.getChatField(m.chat.id, 'bye');
+    this.reply(m, b ? `👋 Текущее прощание: ${escapeHtml(b)}` : 'Не задано. <code>+bye текст</code>');
+  }
+
+  async cmd_warnlog(m) {
+    if (this.needAdmin(m)) return;
+    const u = this.targetUser(m);
+    if (!u?.id) return this.reply(m, 'Ответьте на сообщение.');
+    const n = await this.store.getWarns(m.chat.id, u.id);
+    const k = await this.store.getKarma(u.id);
+    this.reply(m, `🗂 <b>${escapeHtml(displayName(u))}</b>: варны ${n}/3, карма ${k}, ID <code>${u.id}</code>`);
+  }
+
+  async cmd_speedmsg(m) {
+    const t0 = Date.now();
+    const msg = await this.reply(m, '⏳');
+    this.tg.edit(m.chat.id, msg.message_id, `⚡ Ответ бота: <b>${Date.now() - t0} мс</b>`);
+  }
+
+  async cmd_debug(m) {
+    if (!isOwner(m.from.id)) return this.reply(m, '⛔️ Только владелец.');
+    const env = { kv: !!this.store.kv, owner: globalThis.__URS_OWNER || 'не задан' };
+    this.reply(m,
+      `🐞 <b>DEBUG</b>\n` +
+      `KV bound: ${env.kv}\nOwner: ${env.owner}\nIsolate uptime: ${Math.floor((Date.now() - this.startedAt) / 1000)}s\n` +
+      `Chats cached: ${this.cache.dialogs.size}\nUsers cached: ${this.cache.users.size}\nMsgs indexed: ${this.cache.count}\n` +
+      `Logs buffer: ${this.store.getLogs().length}`, { preview: false });
+  }
+
+  async cmd_pingall(m) {
+    if (!isOwner(m.from.id)) return this.reply(m, '⛔️ Только владелец.');
+    const ids = [...this.cache.dialogs.keys()].slice(0, 10);
+    const results = await Promise.all(ids.map(async (cid) => {
+      const t0 = Date.now();
+      try { await this.tg.sendChatAction(cid, 'typing'); return `• <code>${cid}</code>: ${Date.now() - t0} мс`; }
+      catch { return `• <code>${cid}</code>: ❌`; }
+    }));
+    this.reply(m, `📡 <b>PING ALL DIALOGS:</b>\n${results.join('\n') || 'пусто'}`);
   }
 }
 
