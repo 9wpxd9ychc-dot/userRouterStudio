@@ -5,18 +5,37 @@
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
-TOKEN="${CLOUDFLARE_API_TOKEN:-${CF_API_TOKEN:-}}"
+# Cloudflare Builds может называть авто-токен по-разному в разных версиях —
+# перебираем все известные имена. Если ничего нет — подсказываем решение.
+TOKEN=""
+for V in CLOUDFLARE_API_TOKEN CF_API_TOKEN CLOUDFLARE_API_TOKEN_ENCRYPTED CF_TOKEN API_TOKEN; do
+  VAL="$(printenv "$V" 2>/dev/null || true)"
+  if [ -n "$VAL" ]; then TOKEN="$VAL"; echo ">> Найден CF-токен в переменной $V"; break; fi
+done
 ACCOUNT="${CLOUDFLARE_ACCOUNT_ID:-${CF_ACCOUNT_ID:-}}"
 WRANGLER="npx --yes wrangler@3.114.17"
 
 if [ -z "$TOKEN" ]; then
-  echo "!! Нет CF-токена в окружении сборки."
-  echo "!! Этот скрипт для Cloudflare Builds (токен подставляется автоматически)."
-  echo "!! Для локального деплоя: bash scripts/deploy-local.sh"
+  echo "=============================================================="
+  echo "!! В окружении сборки НЕ найдено ни одной CF-переменной с токеном."
+  echo "!! Это значит, что билд запущен НЕ из Cloudflare Builds"
+  echo "!!   (например, это GitHub Actions без секретов)."
+  echo ""
+  echo "!! РЕШЕНИЕ А (рекомендуется, без всяких токенов):"
+  echo "!!   dash.cloudflare.com -> Workers & Pages -> Create Worker"
+  echo "!!   Build settings -> Connect to Git -> репозиторий userRouterStudio,"
+  echo "!!   branch master, Build command: bash scripts/cf-build.sh"
+  echo "!!   Cloudflare САМ подставит токен при сборке."
+  echo ""
+  echo "!! РЕШЕНИЕ Б (если хотите через GitHub Actions):"
+  echo "!!   добавьте секреты CLOUDFLARE_API_TOKEN и CLOUDFLARE_ACCOUNT_ID"
+  echo "!!   в Settings -> Secrets and variables -> Actions"
+  echo "=============================================================="
   exit 1
 fi
 export CLOUDFLARE_API_TOKEN="$TOKEN"
 [ -n "$ACCOUNT" ] && export CLOUDFLARE_ACCOUNT_ID="$ACCOUNT"
+echo ">> Account ID: ${ACCOUNT:-не определён}"
 
 # 0. Жёсткая проверка синтаксиса ВСЕХ файлов до бандлинга (esbuild не любит TS-аннотации)
 for f in src/index.js src/lib/*.js; do
