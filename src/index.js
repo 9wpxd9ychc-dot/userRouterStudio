@@ -405,6 +405,11 @@ async function passive(ctx, m) {
       }
     }
   }
+}
+
+// ---------- chat-member join/leave side effects ----------
+async function memberEvents(ctx, upd) {
+  const { store, tg } = ctx;
 
   // join events: greet / motd / gban enforcement / birthday check
   if (upd.new_chat_member) {
@@ -433,6 +438,11 @@ async function passive(ctx, m) {
     if (bye && l) await tg.send(upd.chat.id, bye.replace(/\{user\}/g, escapeHtml(mentionPlain(l))).replace(/\{chat\}/g, upd.chat.title || 'чат')).catch(() => null);
   }
 }
+
+// ---------- slow-mode enforcement (per chat) ----------
+async function slowMode(ctx, m) {
+  const { store, tg } = ctx;
+  const slowSec = Number((await store.getChatField(m.chat.id, 'slow')) || 0);
   if (slowSec > 0 && m.from && !isOwnerSafe(m.from.id)) {
     const st = CACHE.slowState.get(m.chat.id) || { lastTs: 0, lastUser: 0, streak: 0 };
     const now = Date.now();
@@ -467,6 +477,7 @@ async function handleUpdate(ctx, upd) {
     if (m.from?.is_bot) { CACHE.myLast.set(m.chat.id, m.message_id); return; }
     const handled = await dispatch(ctx, m);
     if (!handled) await passive(ctx, m);
+    await slowMode(ctx, m).catch(() => null);
   } else if (upd.edited_message) {
     const m = upd.edited_message;
     remember(m);
@@ -477,13 +488,8 @@ async function handleUpdate(ctx, upd) {
     store.pushLog({ kind: 'DELETE', info: `Кто-то удалил сообщение #${upd.deleted_message.message_id}` });
   } else if (upd.pinned_message) {
     store.pushLog({ kind: 'PIN', info: `Закреплено сообщение от ${upd.pinned_message.from?.first_name || '?'}` });
-  } else if (upd.new_chat_member) {
-    store.pushLog({ kind: 'JOIN', info: `${mentionPlain(upd.new_chat_member.from)} вошёл в чат` });
-    if (upd.new_chat_member.from?.is_bot && upd.new_chat_member.from?.username === ctx.me?.username) {
-      await tg.send(upd.chat.id, `🕺 <b>userRouterStudio на борту!</b>\nНапиши <code>+help</code> или <code>/start</code>. 👋`);
-    }
-  } else if (upd.left_chat_member) {
-    store.pushLog({ kind: 'LEAVE', info: `${mentionPlain(upd.left_chat_member.from)} покинул чат` });
+  } else if (upd.new_chat_member || upd.left_chat_member) {
+    await memberEvents(ctx, upd).catch(() => null);
   } else if (upd.callback_query) {
     await tg.answerCbQuery(upd.callback_query.id);
   } else if (upd.inline_query) {
@@ -532,7 +538,8 @@ async function ensureWebhook(env, url) {
       secret_token: wantSecret,
       allowed_updates: JSON.stringify([
         'message', 'edited_message', 'channel_post', 'edited_channel_post',
-        'inline_query', 'callback_query', 'chat_member',
+        'inline_query', 'callback_query',
+        'my_chat_member', 'chat_member',
       ]),
       max_connections: 40,
     });

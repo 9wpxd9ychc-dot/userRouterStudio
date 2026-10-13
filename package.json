@@ -3,9 +3,12 @@
   "version": "1.0.0",
   "description": "userRouterStudio - Telegram userbot control panel on Cloudflare Workers (zero runtime deps)",
   "main": "src/index.js",
+  "devDependencies": {
+    "wrangler": "3.114.17"
+  },
   "scripts": {
-    "dev": "echo run: npx wrangler dev",
-    "deploy": "echo run: bash scripts/deploy-local.sh"
+    "dev": "npx --yes wrangler@3.114.17 dev",
+    "deploy": "bash scripts/deploy-local.sh"
   },
   "author": "userRouterStudio",
   "license": "MIT"
