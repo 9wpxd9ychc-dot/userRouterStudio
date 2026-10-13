@@ -47,7 +47,7 @@ curl https://userrouterstudio.<ваш-аккаунт>.workers.dev/setup   # ▶ 
 
 Или одной командой с локальной машины:
 ```bash
-./scripts/deploy.sh "123456:ABC-your-token" 11111111
+bash scripts/deploy.sh "123456:ABC-your-token" 11111111
 ```
 
 ### Локальная разработка
