@@ -1,0 +1,17 @@
+{
+  "name": "userrouterstudio",
+  "version": "1.0.0",
+  "description": "userRouterStudio — Telegram userbot control panel running on Cloudflare Workers (native fetch, zero Node deps)",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail"
+  },
+  "keywords": ["telegram", "userbot", "cloudflare", "worker", "webhook"],
+  "author": "userRouterStudio",
+  "license": "MIT",
+  "devDependencies": {
+    "wrangler": "^3.60.0"
+  }
+}
