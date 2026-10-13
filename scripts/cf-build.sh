@@ -1,86 +1,24 @@
 #!/usr/bin/env bash
-# userRouterStudio — деплой ВНУТРИ Cloudflare Workers Builds (Build command).
-# Не требует CLOUDFLARE_API_TOKEN в GitHub: Cloudflare сам подставляет
-# CF_API_TOKEN + CF_ACCOUNT_ID в окружение сборки.
-set -uo pipefail
+# userRouterStudio — Build command для Cloudflare Workers Builds.
+# НЕ требует CLOUDFLARE_API_TOKEN: секреты читаются из Variables & Secrets воркера.
+set -euo pipefail
 cd "$(dirname "$0")/.."
 
-# Cloudflare Builds может называть авто-токен по-разному в разных версиях —
-# перебираем все известные имена. Если ничего нет — подсказываем решение.
-TOKEN=""
-for V in CLOUDFLARE_API_TOKEN CF_API_TOKEN CLOUDFLARE_API_TOKEN_ENCRYPTED CF_TOKEN API_TOKEN; do
-  VAL="$(printenv "$V" 2>/dev/null || true)"
-  if [ -n "$VAL" ]; then TOKEN="$VAL"; echo ">> Найден CF-токен в переменной $V"; break; fi
-done
-ACCOUNT="${CLOUDFLARE_ACCOUNT_ID:-${CF_ACCOUNT_ID:-}}"
-WRANGLER="npx --yes wrangler@3.114.17"
-
-if [ -z "$TOKEN" ]; then
-  echo "=============================================================="
-  echo "!! В окружении сборки НЕ найдено ни одной CF-переменной с токеном."
-  echo "!! Это значит, что билд запущен НЕ из Cloudflare Builds"
-  echo "!!   (например, это GitHub Actions без секретов)."
-  echo ""
-  echo "!! РЕШЕНИЕ А (рекомендуется, без всяких токенов):"
-  echo "!!   dash.cloudflare.com -> Workers & Pages -> Create Worker"
-  echo "!!   Build settings -> Connect to Git -> репозиторий userRouterStudio,"
-  echo "!!   branch master, Build command: bash scripts/cf-build.sh"
-  echo "!!   Cloudflare САМ подставит токен при сборке."
-  echo ""
-  echo "!! РЕШЕНИЕ Б (если хотите через GitHub Actions):"
-  echo "!!   добавьте секреты CLOUDFLARE_API_TOKEN и CLOUDFLARE_ACCOUNT_ID"
-  echo "!!   в Settings -> Secrets and variables -> Actions"
-  echo "=============================================================="
-  exit 1
-fi
-export CLOUDFLARE_API_TOKEN="$TOKEN"
-[ -n "$ACCOUNT" ] && export CLOUDFLARE_ACCOUNT_ID="$ACCOUNT"
-echo ">> Account ID: ${ACCOUNT:-не определён}"
-
-# 0. Жёсткая проверка синтаксиса ВСЕХ файлов до бандлинга (esbuild не любит TS-аннотации)
+echo ">> Проверка синтаксиса всех JS-файлов..."
 for f in src/index.js src/lib/*.js; do
   node --check "$f" || { echo "!! Синтаксис сломан в $f"; exit 1; }
 done
-echo ">> Синтаксис всех файлов OK"
+echo ">> Синтаксис OK"
 
-# 1. KV-неймспейс (создаётся один раз, id сохраняется в wrangler.toml)
+# KV опционален: если id не заполнен — убираем блок, бот работает в памяти isolate.
 KV_ID=$(grep -A2 'kv_namespaces' wrangler.toml | grep -oE '[a-f0-9]{32}' | head -1 || true)
-[ "$KV_ID" = "00000000000000000000000000000000" ] && KV_ID=""
-if [ -z "${KV_ID}" ]; then
-  echo ">> Создаю KV-неймспейс userrouterstudio-db ..."
-  KV_JSON=$($WRANGLER kv namespace create DB --json 2>/dev/null || true)
-  KV_ID=$(echo "$KV_JSON" | grep -oE '"id"[^"]*"[a-f0-9]{32}"' | grep -oE '[a-f0-9]{32}' | head -1 || true)
-  if [ -z "$KV_ID" ]; then
-    echo "!! Не удалось создать KV (нет прав?). Работаем без персистентности (в памяти isolate)."
-    sed -i.bak '/^\[\[kv_namespaces\]\]/,+2d' wrangler.toml; rm -f wrangler.toml.bak
-  else
-    node -e 'const fs=require("fs");let t=fs.readFileSync("wrangler.toml","utf8");if(!/^\[\[kv_namespaces\]\]/m.test(t)){t+="\n[[kv_namespaces]]\nbinding = \"DB\"\nid = \"'$KV_ID'\"\n"}else{t=t.replace(/^id\s*=\s*".*"/m,"id = \"'$KV_ID'\"")}fs.writeFileSync("wrangler.toml",t)' \
-      || sed -i.bak "s|^id *=.*|id = \"$KV_ID\"|" wrangler.toml
-    rm -f wrangler.toml.bak
-    echo ">> KV id: $KV_ID"
-  fi
-fi
-
-# 2. Секреты из переменных билда (Dashboard -> Settings -> Variables & Secrets)
-for VAR in TELEGRAM_BOT_TOKEN OWNER_ID WEBHOOK_SECRET; do
-  VAL="$(printenv "$VAR" || true)"
-  if [ -n "$VAL" ]; then
-    printf '%s' "$VAL" | $WRANGLER secret put "$VAR" >/dev/null 2>&1 \
-      && echo ">> secret $VAR ✓" || echo "!! secret $VAR — ошибка"
-  else
-    echo "!! $VAR не задана в Variables сборки (добавьте в Settings -> Variables & Secrets)"
-  fi
-done
-
-# 3. Деплой воркера (wrangler бандлит src/index.js через esbuild)
-$WRANGLER deploy || { echo "!! Deploy упал"; exit 1; }
-
-# 4. Webhook: если задан WORKER_URL — ставим сразу; иначе откройте <url>/setup
-if [ -n "${WORKER_URL:-}" ] && [ -n "${TELEGRAM_BOT_TOKEN:-}" ]; then
-  U="${WORKER_URL%/}"
-  curl -s "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook?url=${U}/webhook&secret_token=${WEBHOOK_SECRET:-}" && echo
+if [ -z "${KV_ID}" ] || [ "${KV_ID}" = "00000000000000000000000000000000" ]; then
+  echo ">> KV id не задан — деплою без персистентности (данные живут в isolate + перезапусках теряются)."
+  sed -i.bak '/^\[\[kv_namespaces\]\]/,+2d' wrangler.toml && rm -f wrangler.toml.bak
 else
-  echo ">> Webhook НЕ установлен автоматически. После включения workers.dev"
-  echo ">> просто откройте в браузере: https://userrouterstudio.<ваш-prefix>.workers.dev/setup"
+  echo ">> KV id: ${KV_ID}"
 fi
-echo ">> Готово."
+
+# Деплой. В Cloudflare Builds токен подставляется автоматически (CF_API_TOKEN).
+npx --yes wrangler@3.114.17 deploy
+echo ">> Готово. Секреты TELEGRAM_BOT_TOKEN/OWNER_ID/WEBHOOK_SECRET берутся из Settings -> Variables and Secrets."
