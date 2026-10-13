@@ -40,21 +40,18 @@ done
 # 3. Деплой воркера
 npx --yes wrangler@latest deploy
 
-# 4. Определяем URL и ставим Telegram-webhook
-APP_NAME=$(grep -oP '(?<=^name = ")[^"]+' wrangler.toml)
-PREFIX=$(echo "${CLOUDFLARE_API_TOKEN}" | cut -c1-6)
-URL=""
-for host in workers.dev; do
-  U="https://${APP_NAME}.${PREFIX}.${host}"
-  CODE=$(curl -s -o /dev/null -w '%{http_code}' "$U" || true)
-  [ "$CODE" != "000" ] && URL="$U" && break
-done
-[ -z "$URL" ] && URL="https://${APP_NAME}.workers.dev"
-echo ">> Worker URL: $URL"
-
-if [ -n "${TELEGRAM_BOT_TOKEN:-}" ]; then
-  RESP=$(curl -s "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook?url=${URL}/webhook&secret_token=${WEBHOOK_SECRET:-}")
-  echo ">> setWebhook: $RESP"
+# 4. Деплой-вывод: Cloudflare сам печатает реальный URL воркера.
+#    Ставим webhook, если задан WORKER_URL (в Variables билда) — иначе
+#    после первого деплоя скопируйте URL из Dashboard и выполните:
+#      bash scripts/setup-webhook.sh https://<worker>.workers.dev
+if [ -n "${WORKER_URL:-}" ] && [ -n "${TELEGRAM_BOT_TOKEN:-}" ]; then
+  U="${WORKER_URL%/}"
+  RESP=$(curl -s "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook?url=${U}/webhook&secret_token=${WEBHOOK_SECRET:-}")
+  echo ">> setWebhook -> ${U}/webhook : $RESP"
+else
+  echo ">> WORKER_URL/TELEGRAM_BOT_TOKEN не заданы — webhook НЕ установлен."
+  echo ">> После включения workers.dev выполните вручную:"
+  echo "   bash scripts/setup-webhook.sh https://<ваш-workder>.workers.dev <BOT_TOKEN> <WEBHOOK_SECRET>"
 fi
 
 # 5. Заглушка для Pages-совместимости (не используется при Workers-билде)
