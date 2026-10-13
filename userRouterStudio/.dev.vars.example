@@ -1,4 +1,0 @@
-# Local development (wrangler dev) — copy to .dev.vars and fill in
-TELEGRAM_BOT_TOKEN = "123456:ABC-your-bot-token"
-WEBHOOK_SECRET = "long-random-string"
-OWNER_ID = "11111111"
