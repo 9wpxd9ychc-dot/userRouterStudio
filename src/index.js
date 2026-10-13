@@ -540,15 +540,65 @@ async function ensureWebhook(env, url) {
   return hookUrl;
 }
 
+async function helloStub() {
+  return new Response(
+    '<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8">' +
+    '<title>userRouterStudio — placeholder</title>' +
+    '<meta name="viewport" content="width=device-width,initial-scale=1"></head>' +
+    '<body style="font-family:system-ui;background:#0b0f1a;color:#e6edf3;display:flex;align-items:center;justify-content:center;min-height:90vh;margin:0">' +
+    '<div style="max-width:640px;padding:24px;text-align:center">' +
+    '<h1>🕺 userRouterStudio</h1>' +
+    '<p>Это <b>placeholder-воркер</b>: он нужен, чтобы Cloudflare Workers Builds было во что деплоиться ' +
+    '(Builds умеет обновлять только уже существующий воркер).</p>' +
+    '<p>Настоящий бот задеплоится сюда автоматически после успешного первого билда из репозитория.</p>' +
+    '<p>Если вы видите эту страницу после билда — значит build command не выполнился. ' +
+    'Проверьте логи: Workers &amp; Pages → userrouterstudio → Deployments.</p>' +
+    '</div></body></html>',
+    { headers: { 'Content-Type': 'text/html; charset=utf-8' } }
+  );
+}
+
 export default {
   async fetch(req, env, ctxWaitUntil) {
     const url = new URL(req.url);
 
+    // GET /setup?token=<TELEGRAM_BOT_TOKEN> — одноразовая инициализация:
+    // создаёт воркера с секретами (нужно для Cloudflare Builds, которым сначала
+    // нужен существующий воркер) и сразу ставит Telegram-webhook.
+    if ((req.method === 'GET' || req.method === 'POST') && url.pathname === '/setup') {
+      const token = url.searchParams.get('token') || env.TELEGRAM_BOT_TOKEN || '';
+      if (!token || !/^\d+:[\w-]+$/.test(token)) {
+        return new Response(JSON.stringify({
+          ok: false,
+          error: 'нужен ?token=<токен_бота_от_BotFather>',
+        }), { headers: { 'Content-Type': 'application/json' } });
+      }
+      const tg = new TG(token);
+      const me = await tg.me().catch(() => null);
+      if (!me) {
+        return new Response(JSON.stringify({ ok: false, error: 'Telegram отклонил токен (getMe failed)' }),
+          { headers: { 'Content-Type': 'application/json' } });
+      }
+      const hookUrl = `${url.origin}${ROUTE_PREFIX}`;
+      const secret = url.searchParams.get('secret') || env.WEBHOOK_SECRET || '';
+      const hook = await tg.call('setWebhook', {
+        url: hookUrl,
+        ...(secret ? { secret_token: secret } : {}),
+        drop_pending_updates: true,
+      }).catch((e) => ({ ok: false, error: String(e) }));
+      return new Response(JSON.stringify({
+        ok: !!hook.ok, bot: `@${me.username}`, webhook: hookUrl, secret_set: !!secret,
+        next: 'теперь настройте Cloudflare Build (bash scripts/cf-build.sh) — он перезапишет этот воркер настоящим ботом',
+      }, null, 2), { headers: { 'Content-Type': 'application/json' } });
+    }
+
     if (!env.TELEGRAM_BOT_TOKEN) {
+      // Воркер ещё не инициализирован секретами (первый заход / placeholder).
+      // Отдаём заглушку вместо ошибки — Cloudflare Builds так есть во что деплоиться.
+      if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '')) return helloStub();
       return new Response(JSON.stringify({
         ok: false,
-        error: 'TELEGRAM_BOT_TOKEN not set. Run: npx wrangler secret put TELEGRAM_BOT_TOKEN',
-        docs: 'https://github.com/userRouterStudio (см. README)',
+        error: 'TELEGRAM_BOT_TOKEN not set. Откройте /setup?token=<токен_бота> или используйте scripts/cf-build.sh',
       }), { headers: { 'Content-Type': 'application/json' } });
     }
 

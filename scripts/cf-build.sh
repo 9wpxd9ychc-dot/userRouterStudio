@@ -1,58 +1,55 @@
 #!/usr/bin/env bash
-# userRouterStudio — сборка внутри Cloudflare Workers Builds.
-# НЕ требует CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID в GitHub:
-# Cloudflare сам подставляет эти переменные в свои build-окружения.
-#
-# Настройка в Dashboard (Workers & Pages -> Create -> Workers -> Build settings):
-#   Connect to Git  : репозиторий userRouterStudio, ветка master
-#   Framework preset: None
-#   Build command   : bash scripts/cf-build.sh
-#   Deploy bucket    : dist
+# userRouterStudio — сборка ВНУТРИ Cloudflare Workers Builds.
+# Не требует CLOUDFLARE_API_TOKEN / ACCOUNT_ID в GitHub:
+# Cloudflare сам подставляет CF_API_TOKEN и CF_ACCOUNT_ID в build-окружение.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-if [ -z "${CLOUDFLARE_API_TOKEN:-}" ]; then
-  echo "!! CLOUDFLARE_API_TOKEN отсутствует."
-  echo "!! Этот скрипт рассчитан на сборку ВНУТРИ Cloudflare Builds,"
-  echo "!! где токен подставляется автоматически. Для локального деплоя"
-  echo "!! используйте: bash scripts/deploy-local.sh"
+TOKEN="${CLOUDFLARE_API_TOKEN:-${CF_API_TOKEN:-}}"
+ACCOUNT="${CLOUDFLARE_ACCOUNT_ID:-${CF_ACCOUNT_ID:-}}"
+WRANGLER="npx --yes wrangler@3.114.17"
+
+if [ -z "$TOKEN" ]; then
+  echo "!! Нет CF-токена в окружении сборки."
+  echo "!! Этот скрипт для Cloudflare Builds (токен подставляется автоматически)."
+  echo "!! Для локального деплоя: bash scripts/deploy-local.sh"
   exit 1
 fi
+export CLOUDFLARE_API_TOKEN="$TOKEN"
+[ -n "$ACCOUNT" ] && export CLOUDFLARE_ACCOUNT_ID="$ACCOUNT"
 
-# 1. KV-неймспейс для заметок/фильтров/AFK (создаётся один раз)
-KV_ID=$(grep -A2 'kv_namespaces' wrangler.toml | grep -oP '(?<=id = ")[a-f0-9]{32}' || true)
+# 1. KV-неймспейс (создаётся один раз, id сохраняется в wrangler.toml)
+KV_ID=$(grep -A2 'kv_namespaces' wrangler.toml | grep -oE '[a-f0-9]{32}' | head -1 || true)
 if [ -z "${KV_ID}" ]; then
   echo ">> Создаю KV-неймспейс userrouterstudio-db ..."
-  KV_ID=$(npx --yes wrangler@latest kv namespace create userrouterstudio-db --json | grep -oP '(?<="id":")[a-f0-9]{32}')
-  printf '\n[[kv_namespaces]]\nbinding = "DB"\nid = "%s"\n' "$KV_ID" >> wrangler.toml
-fi
-echo ">> KV id: $KV_ID"
-
-# 2. Секреты берём из переменных окружения билда (заполняются в Dashboard)
-for VAR in TELEGRAM_BOT_TOKEN OWNER_ID WEBHOOK_SECRET; do
-  if [ -n "${!VAR:-}" ]; then
-    printf '%s' "${!VAR}" | npx --yes wrangler@latest secret put "$VAR"
+  KV_ID=$($WRANGLER kv namespace create DB --json 2>/dev/null | grep -oE '"id": ?"[a-f0-9]{32}"' | grep -oE '[a-f0-9]{32}' || true)
+  if [ -z "$KV_ID" ]; then
+    echo "!! Не удалось создать KV (нет прав?). Работаем без персистентности."
   else
-    echo "!! ВНИМАНИЕ: $VAR не задана в настройках сборки (Settings -> Variables)"
+    printf '\n[[kv_namespaces]]\nbinding = "DB"\nid = "%s"\n' "$KV_ID" >> wrangler.toml
+    echo ">> KV id: $KV_ID"
+  fi
+fi
+
+# 2. Секреты из переменных билда (Dashboard -> Settings -> Variables)
+for VAR in TELEGRAM_BOT_TOKEN OWNER_ID WEBHOOK_SECRET; do
+  VAL="${!VAR:-}"
+  if [ -n "$VAL" ]; then
+    printf '%s' "$VAL" | $WRANGLER secret put "$VAR" >/dev/null 2>&1 && echo ">> secret $VAR ✓" || echo "!! secret $VAR — ошибка"
+  else
+    echo "!! $VAR не задана в Variables сборки"
   fi
 done
 
-# 3. Деплой воркера
-npx --yes wrangler@latest deploy
+# 3. Деплой воркера (main = src/index.js, модули бандлит wrangler'ом)
+$WRANGLER deploy
 
-# 4. Деплой-вывод: Cloudflare сам печатает реальный URL воркера.
-#    Ставим webhook, если задан WORKER_URL (в Variables билда) — иначе
-#    после первого деплоя скопируйте URL из Dashboard и выполните:
-#      bash scripts/setup-webhook.sh https://<worker>.workers.dev
+# 4. Webhook: если задан WORKER_URL — ставим сразу; иначе откройте <url>/setup
 if [ -n "${WORKER_URL:-}" ] && [ -n "${TELEGRAM_BOT_TOKEN:-}" ]; then
   U="${WORKER_URL%/}"
-  RESP=$(curl -s "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook?url=${U}/webhook&secret_token=${WEBHOOK_SECRET:-}")
-  echo ">> setWebhook -> ${U}/webhook : $RESP"
+  curl -s "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook?url=${U}/webhook&secret_token=${WEBHOOK_SECRET:-}" && echo
 else
-  echo ">> WORKER_URL/TELEGRAM_BOT_TOKEN не заданы — webhook НЕ установлен."
-  echo ">> После включения workers.dev выполните вручную:"
-  echo "   bash scripts/setup-webhook.sh https://<ваш-workder>.workers.dev <BOT_TOKEN> <WEBHOOK_SECRET>"
+  echo ">> Webhook НЕ установлен автоматически. После включения workers.dev"
+  echo ">> просто откройте в браузере: https://<worker>.workers.dev/setup"
 fi
-
-# 5. Заглушка для Pages-совместимости (не используется при Workers-билде)
-mkdir -p dist && echo "// deployed via wrangler" > dist/_worker.js
+echo ">> Готово."
